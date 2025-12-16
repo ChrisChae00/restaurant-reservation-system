@@ -38,8 +38,8 @@
     },
     "time": {
       "label": "Select Time Slot",
-      "arrival": "Seating",
-      "departure": "Until",
+      "arrival": "Reservation Start",
+      "departure": "Kindly Vacate by",
       "lateWarning": "Late arrivals may result in reduced dining time"
     },
     "slots": {

@@ -190,7 +190,7 @@ export function DetailsStep({
                 No available slots for this date
               </div>
             ) : (
-              <div className="grid gap-3">
+              <div className="grid grid-cols-1 gap-3">
                 {slots.map((slot) => {
                   const times = formatTimeRange({
                     id: slot.slotId,
@@ -208,32 +208,23 @@ export function DetailsStep({
                       variant={isSelected ? 'default' : 'outline'}
                       disabled={!slot.available}
                       onClick={() => onSlotChange(slot.slotId, slot.arrivalStart, slot.slotEnd)}
-                      className={`h-auto py-6 px-4 w-full flex flex-col items-center gap-2 ${
+                      className={`h-auto py-4 px-4 w-full flex flex-col items-center gap-2 transition-all duration-200 ${
                         isSelected
-                          ? 'bg-gold text-background hover:bg-gold-light border-gold ring-1 ring-gold ring-offset-2 ring-offset-background'
+                          ? 'bg-gold text-background hover:bg-gold-light border-gold ring-1 ring-gold ring-offset-2 ring-offset-background scale-[1.02]'
                           : slot.available
-                          ? 'border-gold/30 hover:border-gold hover:bg-gold/10'
+                          ? 'border-gold/30 hover:border-gold hover:bg-gold/5'
                           : 'opacity-50 cursor-not-allowed'
                       }`}
                     >
-                      <div className="flex items-center justify-between w-full">
-                          {/* Arrival */}
+                      <div className="flex items-center justify-between w-full max-w-md gap-4">
                           <div className="flex flex-col items-start min-w-[30%]">
-                            <span className="text-[10px] uppercase tracking-widest opacity-70 mb-1">{t('time.arrival')}</span>
-                            <span className="text-xl font-medium tracking-tight">{times.arrival}</span>
+                              <span className="text-[10px] uppercase tracking-widest opacity-60 mb-1">{t('time.arrival')}</span>
+                              <span className="text-xl font-light tracking-tight">{times.arrival}</span>
                           </div>
 
-                          {/* Arrow / duration */}
-                          <div className="flex flex-col items-center flex-1 px-4">
-                            <div className="h-[1px] w-full bg-current opacity-20 relative">
-                              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-current opacity-40"></div>
-                            </div>
-                          </div>
-
-                          {/* Departure */}
                           <div className="flex flex-col items-end min-w-[30%]">
-                            <span className="text-[10px] uppercase tracking-widest opacity-70 mb-1">{t('time.departure')}</span>
-                            <span className="text-xl font-medium tracking-tight">{times.departure}</span>
+                              <span className="text-[10px] uppercase tracking-widest opacity-60 mb-1">{t('time.departure')}</span>
+                              <span className="text-xl font-light tracking-tight">{times.departure}</span>
                           </div>
                       </div>
 
@@ -261,7 +252,7 @@ export function DetailsStep({
           <div className="space-y-4 pt-4 border-t border-gold/10">
             <Label className="text-base font-medium">{t('contact.title')}</Label>
             
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="firstName" className="flex items-center gap-1 text-sm">
                   <User className="h-3 w-3 text-gold" />

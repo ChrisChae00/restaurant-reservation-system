@@ -38,8 +38,8 @@
     },
     "time": {
       "label": "시간대 선택",
-      "arrival": "예약 시간",
-      "departure": "식사 종료",
+      "arrival": "예약 시작",
+      "departure": "예약 종료",
       "lateWarning": "늦은 도착 시 식사 시간이 줄어들 수 있습니다"
     },
     "slots": {

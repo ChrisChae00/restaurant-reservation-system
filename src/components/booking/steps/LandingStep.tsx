@@ -3,7 +3,7 @@
 // Step 1: Landing - Rules explanation and party size filter
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Users, ExternalLink, Phone, Mail, AlertCircle, CheckCircle } from 'lucide-react';
+import { Users, ExternalLink, Phone, Mail, AlertCircle, CheckCircle, Plus, Minus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -47,6 +47,18 @@ export function LandingStep({
     }
   };
 
+  const incrementPartySize = () => {
+    const current = parseInt(inputValue || '0', 10);
+    const newValue = isNaN(current) ? 1 : Math.min(current + 1, 50);
+    handlePartySizeChange(newValue.toString());
+  };
+
+  const decrementPartySize = () => {
+    const current = parseInt(inputValue || '0', 10);
+    const newValue = isNaN(current) ? 0 : Math.max(current - 1, 0);
+    handlePartySizeChange(newValue.toString());
+  };
+
   const category = partySize > 0 ? getPartySizeCategory(partySize) : null;
 
   return (
@@ -64,19 +76,42 @@ export function LandingStep({
           <Label htmlFor="partySize" className="text-xs font-medium text-gold/60 uppercase tracking-[0.2em]">
             {t('partySize.label')}
           </Label>
-          <div className="relative w-24 group">
-            <Input
-              id="partySize"
-              type="number"
-              min={1}
-              max={50}
-              value={inputValue}
-              onChange={(e) => handlePartySizeChange(e.target.value)}
-              placeholder="0"
-              className="text-center text-4xl font-light h-16 bg-transparent border-b-2 border-gold/20 rounded-none focus-visible:ring-0 focus-visible:border-gold px-0 transition-all duration-300 placeholder:text-muted-foreground/20"
-            />
-            {/* Animated underline effect */}
-            <div className="absolute bottom-0 left-0 w-full h-[2px] bg-gold scale-x-0 group-focus-within:scale-x-100 transition-transform duration-300 origin-center" />
+          
+          <div className="flex items-center gap-6">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={decrementPartySize}
+              disabled={!inputValue || parseInt(inputValue) <= 0}
+              className="h-12 w-12 rounded-full border-gold/30 hover:bg-gold/10 hover:text-gold"
+            >
+              <Minus className="h-6 w-6" />
+            </Button>
+
+            <div className="relative w-24 group">
+              <Input
+                id="partySize"
+                type="number"
+                min={0}
+                max={50}
+                value={inputValue}
+                onChange={(e) => handlePartySizeChange(e.target.value)}
+                placeholder="0"
+                className="text-center text-4xl font-light h-16 bg-transparent border-b-2 border-gold/20 rounded-none focus-visible:ring-0 focus-visible:border-gold px-0 transition-all duration-300 placeholder:text-muted-foreground/20 no-spinner"
+              />
+              {/* Animated underline effect */}
+              <div className="absolute bottom-0 left-0 w-full h-[2px] bg-gold scale-x-0 group-focus-within:scale-x-100 transition-transform duration-300 origin-center" />
+            </div>
+
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={incrementPartySize}
+              disabled={parseInt(inputValue || '0') >= 50}
+              className="h-12 w-12 rounded-full border-gold/30 hover:bg-gold/10 hover:text-gold"
+            >
+              <Plus className="h-6 w-6" />
+            </Button>
           </div>
         </div>
 

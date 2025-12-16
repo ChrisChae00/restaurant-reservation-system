@@ -38,8 +38,8 @@
     },
     "time": {
       "label": "Sélectionner le Créneau",
-      "arrival": "Service",
-      "departure": "Jusqu'à",
+      "arrival": "Début",
+      "departure": "Fin de service",
       "lateWarning": "Les arrivées tardives peuvent réduire le temps de repas"
     },
     "slots": {

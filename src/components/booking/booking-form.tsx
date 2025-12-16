@@ -151,7 +151,7 @@ export function BookingForm() {
   };
 
   return (
-    <div className="w-full max-w-lg mx-auto">
+    <div className="w-full max-w-2xl mx-auto">
       {/* Progress Bar */}
       {/* Progress Bar */}
       {step !== 'confirmation' && (
