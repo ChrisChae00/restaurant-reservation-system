@@ -1,0 +1,186 @@
+{
+  "landing": {
+    "title": "Group Reservation",
+    "subtitle": "Reserve a table for your group of 7-14 people",
+    "description": "Welcome to our group reservation system. Please read the following information carefully before proceeding.",
+    "rules": {
+      "title": "Important Information",
+      "groupSize": "This reservation system is for groups of 7 to 14 people only.",
+      "fixedSlots": "All group reservations are for fixed time slots.",
+      "menuRequired": "Group menu is mandatory. À la carte (individual ordering) is not available for groups.",
+      "deposit": "A credit card is required to guarantee your reservation.",
+      "noShowPolicy": "A fee of $20 CAD per person applies for no-shows or cancellations within 48 hours."
+    },
+    "partySize": {
+      "label": "How many guests?",
+      "placeholder": "Select number of guests",
+      "smallGroup": {
+        "title": "For 1-6 Guests",
+        "description": "Please use our regular booking system for smaller groups.",
+        "button": "Book via Libro"
+      },
+      "largeGroup": {
+        "title": "For 15+ Guests",
+        "description": "Please contact us directly for large group arrangements.",
+        "phone": "(514) 555-0123",
+        "email": "reservations@restoluna.com"
+      }
+    },
+    "agreement": "I have read and understand the group reservation policies",
+    "continue": "Continue"
+  },
+  "details": {
+    "title": "Date, Time & Contact",
+    "subtitle": "Step 2 of 6",
+    "date": {
+      "label": "Select Date",
+      "closed": "Closed"
+    },
+    "time": {
+      "label": "Select Time Slot",
+      "arrival": "Seating",
+      "departure": "Until",
+      "lateWarning": "Late arrivals may result in reduced dining time"
+    },
+    "slots": {
+      "early": "Early Seating",
+      "late": "Late Seating"
+    },
+    "contact": {
+      "title": "Contact Information",
+      "firstName": "First Name",
+      "lastName": "Last Name",
+      "email": "Email Address",
+      "phone": "Phone Number",
+      "firstNamePlaceholder": "John",
+      "lastNamePlaceholder": "Smith",
+      "emailPlaceholder": "john@example.com",
+      "phonePlaceholder": "(514) 555-0123"
+    },
+    "depositNotice": "Reservation is confirmed only after completing the final step.",
+    "back": "Back",
+    "continue": "Continue"
+  },
+  "menuPolicy": {
+    "title": "Menu Policy",
+    "subtitle": "Step 3 of 6",
+    "description": "Please review our group menu policy before proceeding.",
+    "rules": {
+      "title": "Group Menu Rules",
+      "mandatory": "Group menu is mandatory for all reservations of 7+ people.",
+      "noAlaCarte": "À la carte (individual ordering) is not available for groups.",
+      "menuTypes": "You may mix different menus (Half-Moon, Full-Moon, Vegetarian).",
+      "minimumOrder": "Minimum 2 people required per menu type.",
+      "children": "Children under 10 may order 1 dish from the menu."
+    },
+    "viewMenu": "View Full Menu (PDF)",
+    "agreement": "I understand and accept the group menu policy",
+    "back": "Back",
+    "continue": "Continue"
+  },
+  "allergy": {
+    "title": "Allergy Information",
+    "subtitle": "Step 4 of 6",
+    "description": "Please inform us of any allergies or dietary restrictions in your group.",
+    "question": "Does anyone in your group have allergies or dietary restrictions?",
+    "yes": "Yes",
+    "no": "No",
+    "details": {
+      "label": "Please describe the allergies and indicate how many people are affected",
+      "placeholder": "e.g., 2 guests have nut allergies, 1 guest is vegetarian..."
+    },
+    "warnings": {
+      "title": "Important Allergen Information",
+      "peanuts": "Peanuts: May be present in our kitchen. Guests with severe allergies should reconsider dining with us.",
+      "fishGluten": "Fish/Gluten: Our meat marinades contain soy sauce and fish sauce. Please inform us in advance if you cannot consume these."
+    },
+    "back": "Back",
+    "continue": "Continue"
+  },
+  "houseRules": {
+    "title": "House Rules",
+    "subtitle": "Step 5 of 6",
+    "description": "Please agree to the following policies to complete your reservation.",
+    "rules": {
+      "headcount": {
+        "title": "Final Headcount",
+        "description": "Please confirm the exact number of guests 48 hours before your visit."
+      },
+      "oneBill": {
+        "title": "One Bill Policy",
+        "description": "We provide one bill per table. Separate bills are not available."
+      },
+      "noOutside": {
+        "title": "No Outside Items",
+        "description": "Outside food, drinks, desserts, decorations, and music equipment are not permitted."
+      },
+      "alcohol": {
+        "title": "Alcohol Policy",
+        "description": "Beverages over 20% alcohol are not permitted. Wine and beer only."
+      }
+    },
+    "agreement": "I agree to all house rules listed above",
+    "back": "Back",
+    "continue": "Continue"
+  },
+  "cardGuarantee": {
+    "title": "Card Guarantee",
+    "subtitle": "Step 6 of 6",
+    "description": "Please provide a credit card to guarantee your reservation.",
+    "notice": {
+      "noCharge": "No immediate charge.",
+      "secure": "Your card is securely saved for reservation guarantee only.",
+      "penalty": "A fee of $20 CAD per person applies only if you cancel within 48 hours or fail to show up."
+    },
+    "card": {
+      "label": "Credit or Debit Card"
+    },
+    "agreement": "I understand and accept the cancellation policy",
+    "back": "Back",
+    "submit": "Confirm Reservation"
+  },
+  "confirmation": {
+    "title": "Reservation Confirmed!",
+    "subtitle": "Thank you for your reservation",
+    "details": {
+      "confirmationNumber": "Confirmation Number",
+      "date": "Date",
+      "time": "Time",
+      "guests": "Number of Guests",
+      "name": "Name"
+    },
+    "emailSent": "A confirmation email has been sent to",
+    "reminder": "Please remember:",
+    "reminderItems": {
+      "headcount": "Confirm final headcount 48 hours before",
+      "arrival": "Arrive on time to enjoy your full dining experience",
+      "cancellation": "Cancel at least 48 hours in advance to avoid penalties"
+    },
+    "newReservation": "Make Another Reservation"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "required": "Required",
+    "step": "Step",
+    "of": "of"
+  },
+  "errors": {
+    "slotUnavailable": "This time slot is no longer available",
+    "capacityExceeded": "Sorry, we cannot accommodate this group size at this time",
+    "invalidCard": "Please check your card details",
+    "bookingFailed": "Failed to create reservation. Please try again."
+  },
+  "home": {
+    "hero": {
+      "badge": "Montreal's Finest",
+      "title": "Group Reservations",
+      "subtitle": "Unforgettable dining for groups of 7-14 guests.",
+      "contact": "For larger groups (15+), please contact us at"
+    },
+    "footer": {
+      "rights": "All rights reserved.",
+      "contact": "Contact"
+    }
+  }
+}

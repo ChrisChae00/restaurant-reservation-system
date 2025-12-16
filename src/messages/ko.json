@@ -1,0 +1,186 @@
+{
+  "landing": {
+    "title": "단체 예약",
+    "subtitle": "7-14명 그룹을 위한 테이블 예약",
+    "description": "단체 예약 시스템에 오신 것을 환영합니다. 진행하기 전에 다음 정보를 주의 깊게 읽어주세요.",
+    "rules": {
+      "title": "중요 안내사항",
+      "groupSize": "이 예약 시스템은 7명에서 14명 그룹만을 위한 것입니다.",
+      "fixedSlots": "모든 단체 예약은 고정된 시간대로 진행됩니다.",
+      "menuRequired": "단체 메뉴가 필수입니다. 그룹에게는 단품 메뉴가 제공되지 않습니다.",
+      "deposit": "예약 보증을 위해 신용카드가 필요합니다.",
+      "noShowPolicy": "노쇼 또는 48시간 이내 취소 시 1인당 $20 CAD의 수수료가 부과됩니다."
+    },
+    "partySize": {
+      "label": "몇 분이신가요?",
+      "placeholder": "인원수 선택",
+      "smallGroup": {
+        "title": "1-6명 손님",
+        "description": "소규모 그룹은 일반 예약 시스템을 이용해 주세요.",
+        "button": "Libro로 예약하기"
+      },
+      "largeGroup": {
+        "title": "15명 이상",
+        "description": "대규모 그룹은 직접 연락해 주세요.",
+        "phone": "(514) 555-0123",
+        "email": "reservations@restoluna.com"
+      }
+    },
+    "agreement": "단체 예약 정책을 읽고 이해했습니다",
+    "continue": "계속하기"
+  },
+  "details": {
+    "title": "날짜, 시간 및 연락처",
+    "subtitle": "6단계 중 2단계",
+    "date": {
+      "label": "날짜 선택",
+      "closed": "휴무"
+    },
+    "time": {
+      "label": "시간대 선택",
+      "arrival": "예약 시간",
+      "departure": "식사 종료",
+      "lateWarning": "늦은 도착 시 식사 시간이 줄어들 수 있습니다"
+    },
+    "slots": {
+      "early": "이른 시간대",
+      "late": "늦은 시간대"
+    },
+    "contact": {
+      "title": "연락처 정보",
+      "firstName": "이름",
+      "lastName": "성",
+      "email": "이메일 주소",
+      "phone": "전화번호",
+      "firstNamePlaceholder": "길동",
+      "lastNamePlaceholder": "홍",
+      "emailPlaceholder": "example@email.com",
+      "phonePlaceholder": "(514) 555-0123"
+    },
+    "depositNotice": "마지막 단계까지 완료해야 예약이 확정됩니다.",
+    "back": "뒤로",
+    "continue": "계속하기"
+  },
+  "menuPolicy": {
+    "title": "메뉴 정책",
+    "subtitle": "6단계 중 3단계",
+    "description": "진행하기 전에 단체 메뉴 정책을 확인해 주세요.",
+    "rules": {
+      "title": "단체 메뉴 규칙",
+      "mandatory": "7명 이상 예약 시 단체 메뉴가 필수입니다.",
+      "noAlaCarte": "그룹에게는 단품 주문이 불가합니다.",
+      "menuTypes": "다양한 메뉴를 혼합할 수 있습니다 (Half-Moon, Full-Moon, 채식).",
+      "minimumOrder": "메뉴 종류별 최소 2명 이상 주문이 필요합니다.",
+      "children": "10세 미만 어린이는 메뉴에서 1가지 요리를 주문할 수 있습니다."
+    },
+    "viewMenu": "전체 메뉴 보기 (PDF)",
+    "agreement": "단체 메뉴 정책을 이해하고 동의합니다",
+    "back": "뒤로",
+    "continue": "계속하기"
+  },
+  "allergy": {
+    "title": "알레르기 정보",
+    "subtitle": "6단계 중 4단계",
+    "description": "그룹 내 알레르기나 식이 제한이 있으시면 알려주세요.",
+    "question": "그룹 중 알레르기나 식이 제한이 있는 분이 계신가요?",
+    "yes": "예",
+    "no": "아니오",
+    "details": {
+      "label": "알레르기 내용과 해당 인원수를 적어주세요",
+      "placeholder": "예: 2명 견과류 알레르기, 1명 채식주의자..."
+    },
+    "warnings": {
+      "title": "중요 알레르기 안내",
+      "peanuts": "땅콩: 주방에서 사용될 수 있습니다. 심한 알레르기가 있는 분은 방문을 재고해 주세요.",
+      "fishGluten": "생선/글루텐: 고기 양념에 간장과 액젓이 들어갑니다. 드시지 못하시면 미리 알려주세요."
+    },
+    "back": "뒤로",
+    "continue": "계속하기"
+  },
+  "houseRules": {
+    "title": "매장 이용 규칙",
+    "subtitle": "6단계 중 5단계",
+    "description": "예약을 완료하려면 다음 정책에 동의해 주세요.",
+    "rules": {
+      "headcount": {
+        "title": "최종 인원 확정",
+        "description": "방문 48시간 전까지 정확한 인원수를 확정해 주세요."
+      },
+      "oneBill": {
+        "title": "계산서 분할 불가",
+        "description": "테이블당 하나의 계산서만 제공됩니다. 분할 계산은 불가합니다."
+      },
+      "noOutside": {
+        "title": "외부 반입 금지",
+        "description": "외부 음식, 음료, 디저트, 장식, 음악 장비는 반입이 금지됩니다."
+      },
+      "alcohol": {
+        "title": "주류 정책",
+        "description": "도수 20% 이상의 주류는 반입이 금지됩니다. 와인과 맥주만 허용됩니다."
+      }
+    },
+    "agreement": "위에 나열된 모든 이용 규칙에 동의합니다",
+    "back": "뒤로",
+    "continue": "계속하기"
+  },
+  "cardGuarantee": {
+    "title": "카드 정보 등록",
+    "subtitle": "6단계 중 6단계",
+    "description": "예약 보증을 위해 신용카드를 등록해 주세요.",
+    "notice": {
+      "noCharge": "지금 결제되지 않습니다.",
+      "secure": "귀하의 카드는 예약 보증을 위해서만 안전하게 저장됩니다.",
+      "penalty": "방문 48시간 전 취소하거나 노쇼(No-show) 시에만 인당 $20 CAD의 수수료가 청구됩니다."
+    },
+    "card": {
+      "label": "신용카드 또는 체크카드"
+    },
+    "agreement": "취소 정책을 이해하고 동의합니다",
+    "back": "뒤로",
+    "submit": "예약 확정"
+  },
+  "confirmation": {
+    "title": "예약이 확정되었습니다!",
+    "subtitle": "예약해 주셔서 감사합니다",
+    "details": {
+      "confirmationNumber": "예약 번호",
+      "date": "날짜",
+      "time": "시간",
+      "guests": "인원수",
+      "name": "성함"
+    },
+    "emailSent": "확인 이메일이 발송되었습니다",
+    "reminder": "기억해 주세요:",
+    "reminderItems": {
+      "headcount": "48시간 전까지 최종 인원 확정",
+      "arrival": "정시에 도착하여 식사 시간을 충분히 즐기세요",
+      "cancellation": "위약금을 피하려면 최소 48시간 전에 취소하세요"
+    },
+    "newReservation": "새 예약하기"
+  },
+  "common": {
+    "loading": "로딩 중...",
+    "error": "오류가 발생했습니다",
+    "required": "필수",
+    "step": "단계",
+    "of": "중"
+  },
+  "errors": {
+    "slotUnavailable": "이 시간대는 더 이상 이용할 수 없습니다",
+    "capacityExceeded": "죄송합니다, 현재 이 규모의 그룹을 수용할 수 없습니다",
+    "invalidCard": "카드 정보를 확인해 주세요",
+    "bookingFailed": "예약 생성에 실패했습니다. 다시 시도해 주세요."
+  },
+  "home": {
+    "hero": {
+      "badge": "몬트리올 최고의 다이닝",
+      "title": "단체 예약 서비스",
+      "subtitle": "7-14인 그룹을 위한 특별한 미식 경험.",
+      "contact": "15인 이상 단체는 전화로 문의해주세요"
+    },
+    "footer": {
+      "rights": "All rights reserved.",
+      "contact": "문의"
+    }
+  }
+}
