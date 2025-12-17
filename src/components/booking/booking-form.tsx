@@ -110,6 +110,7 @@ export function BookingForm() {
           phone: formData.phone,
           partySize: formData.partySize,
           bookingDate: format(formData.date, 'yyyy-MM-dd'),
+          slotId: formData.slotId,
           slotStart: formData.slotStart,
           slotEnd: formData.slotEnd,
           allergyInfo: formData.hasAllergies ? formData.allergyInfo : null,

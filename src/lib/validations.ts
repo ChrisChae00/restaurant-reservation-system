@@ -101,6 +101,7 @@ export const createBookingRequestSchema = z.object({
   phone: detailsSchema.shape.phone,
   partySize: z.number().min(MIN_PARTY_SIZE).max(MAX_PARTY_SIZE),
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  slotId: z.string(),
   slotStart: z.string().regex(/^\d{2}:\d{2}$/),
   slotEnd: z.string().regex(/^\d{2}:\d{2}$/),
   allergyInfo: z.string().max(1000).optional().nullable(),

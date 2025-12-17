@@ -5,16 +5,17 @@ import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { 
   Users, 
-  Calendar, 
+  Calendar as CalendarIcon, 
   Clock, 
   AlertTriangle, 
-  DollarSign,
-  CheckCircle,
-  XCircle,
-  Loader2,
-  RefreshCw,
+  DollarSign, 
+  CheckCircle, 
+  XCircle, 
+  Loader2, 
+  RefreshCw, 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,7 +26,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
 import type { Booking, BookingStatus } from '@/types/booking';
+import { getSlotsForDate, TimeSlot, formatTimeRange } from '@/lib/booking-rules';
+
 
 const statusColors: Record<BookingStatus, string> = {
   confirmed: 'bg-green-500/20 text-green-400 border-green-500/30',
@@ -47,11 +56,18 @@ export default function AdminPage() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dateFilter, setDateFilter] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const dateFilter = format(selectedDate, 'yyyy-MM-dd');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [chargingId, setChargingId] = useState<string | null>(null);
   const [chargeError, setChargeError] = useState<string | null>(null);
   const [chargeSuccess, setChargeSuccess] = useState<string | null>(null);
+
+  // Availability Management State
+  const [activeTab, setActiveTab] = useState<'bookings' | 'availability'>('bookings');
+  const [blockedSlots, setBlockedSlots] = useState<Set<string>>(new Set());
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+
 
   const fetchBookings = async () => {
     setLoading(true);
@@ -70,9 +86,75 @@ export default function AdminPage() {
     }
   };
 
+  const fetchBlockedSlots = async () => {
+    setAvailabilityLoading(true);
+    try {
+      const response = await fetch(`/api/admin/blocked-slots?date=${dateFilter}`);
+      const data = await response.json();
+      if (data.blockedSlots) {
+        setBlockedSlots(new Set(data.blockedSlots.map((s: any) => s.slot_id)));
+      }
+    } catch (error) {
+      console.error('Failed to fetch blocked slots:', error);
+    } finally {
+      setAvailabilityLoading(false);
+    }
+  };
+
   useEffect(() => {
-    fetchBookings();
-  }, [dateFilter, statusFilter]);
+    if (activeTab === 'bookings') {
+      fetchBookings();
+    } else {
+      fetchBlockedSlots();
+    }
+  }, [dateFilter, statusFilter, activeTab]);
+
+  useEffect(() => {
+    if (chargeSuccess || chargeError) {
+      const timer = setTimeout(() => {
+        setChargeSuccess(null);
+        setChargeError(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [chargeSuccess, chargeError]);
+
+  const handleToggleBlock = async (slotId: string, isCurrentlyBlocked: boolean) => {
+    setChargeError(null);
+    setChargeSuccess(null);
+    const originalBlocked = new Set(blockedSlots);
+
+    // Optimistic update
+    const newBlocked = new Set(blockedSlots);
+    if (isCurrentlyBlocked) {
+      newBlocked.delete(slotId);
+    } else {
+      newBlocked.add(slotId);
+    }
+    setBlockedSlots(newBlocked);
+
+    try {
+      const method = isCurrentlyBlocked ? 'DELETE' : 'POST';
+      const url = `/api/admin/blocked-slots${isCurrentlyBlocked ? `?date=${dateFilter}&slotId=${slotId}` : ''}`;
+      
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: isCurrentlyBlocked ? undefined : JSON.stringify({
+          date: dateFilter,
+          slotId,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to update slot status');
+
+      setChargeSuccess(isCurrentlyBlocked ? 'Slot unblocked' : 'Slot blocked');
+    } catch (error) {
+      console.error('Block toggle error:', error);
+      setChargeError('Failed to update slot status');
+      setBlockedSlots(originalBlocked); // Revert
+    }
+  };
 
   const handleChargePenalty = async (bookingId: string) => {
     if (!confirm('Are you sure you want to charge the no-show penalty for this booking?')) {
@@ -93,7 +175,11 @@ export default function AdminPage() {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to charge penalty');
+        throw new Error(
+          (result.error && result.error.issues && result.error.issues[0]?.message) ||
+          result.error ||
+          'Failed to charge penalty'
+        );
       }
 
       setChargeSuccess(`Successfully charged $${result.chargedAmount} CAD`);
@@ -211,19 +297,47 @@ export default function AdminPage() {
           </CardHeader>
           <CardContent>
             <div className="flex gap-4 flex-wrap">
-              <div className="space-y-2">
+              <div className="space-y-2 flex flex-col">
                 <Label>Date</Label>
-                <Input
-                  type="date"
-                  value={dateFilter}
-                  onChange={(e) => setDateFilter(e.target.value)}
-                  className="w-48 bg-input border-gold/20"
-                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-[240px] pl-3 text-left font-normal border-gold/20 bg-input hover:bg-gold/5",
+                        !selectedDate && "text-muted-foreground"
+                      )}
+                    >
+                      {selectedDate ? (
+                        format(selectedDate, "PPP")
+                      ) : (
+                        <span>Pick a date</span>
+                      )}
+                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50 text-gold" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={(date) => date && setSelectedDate(date)}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                      classNames={{
+                        head_cell: "text-muted-foreground font-normal text-xs w-10",
+                        cell: "h-12 w-12 text-center text-sm p-0 flex items-center justify-center relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+                        day: "h-10 w-10 p-0 font-normal aria-selected:opacity-100 hover:bg-gold/20 hover:text-gold rounded-full transition-all",
+                        day_selected: "!bg-gold !text-background hover:!bg-gold-light hover:!text-background",
+                        day_today: "bg-accent text-accent-foreground",
+                      }}
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="space-y-2">
                 <Label>Status</Label>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-48 bg-input border-gold/20">
+                  <SelectTrigger className="w-[200px] bg-input border-gold/20">
                     <SelectValue placeholder="All statuses" />
                   </SelectTrigger>
                   <SelectContent>
@@ -239,21 +353,55 @@ export default function AdminPage() {
           </CardContent>
         </Card>
 
-        {/* Alerts */}
-        {chargeError && (
-          <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive flex items-center gap-2">
-            <XCircle className="h-5 w-5" />
-            {chargeError}
-          </div>
-        )}
-        {chargeSuccess && (
-          <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 flex items-center gap-2">
-            <CheckCircle className="h-5 w-5" />
-            {chargeSuccess}
-          </div>
-        )}
+        {/* Tabs */}
+        <div className="flex space-x-2 border-b border-gold/20">
+          <button
+            onClick={() => setActiveTab('bookings')}
+            className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+              activeTab === 'bookings'
+                ? 'text-gold'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Bookings
+            {activeTab === 'bookings' && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('availability')}
+            className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+              activeTab === 'availability'
+                ? 'text-gold'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Availability Block
+            {activeTab === 'availability' && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />
+            )}
+          </button>
+        </div>
+
+
+        {/* Floating Toast Notifications - Top Center */}
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[9999] flex flex-col gap-2 pointer-events-none w-full max-w-md px-4">
+          {chargeError && (
+            <div className="p-4 rounded-lg bg-red-600 text-white shadow-2xl border border-red-700 flex items-center justify-center gap-2 animate-in slide-in-from-top-2 fade-in duration-300 pointer-events-auto">
+              <XCircle className="h-5 w-5 fill-white text-red-600" />
+              <span className="font-medium">{chargeError}</span>
+            </div>
+          )}
+          {chargeSuccess && (
+            <div className="p-4 rounded-lg bg-emerald-600 text-white shadow-2xl border border-emerald-700 flex items-center justify-center gap-2 animate-in slide-in-from-top-2 fade-in duration-300 pointer-events-auto">
+              <CheckCircle className="h-5 w-5 fill-white text-emerald-600" />
+              <span className="font-medium">{chargeSuccess}</span>
+            </div>
+          )}
+        </div>
 
         {/* Bookings List */}
+        {activeTab === 'bookings' && (
         <Card className="glass-card border-gold/20">
           <CardHeader>
             <CardTitle>Bookings</CardTitle>
@@ -294,7 +442,7 @@ export default function AdminPage() {
                         </div>
                         <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                           <span className="flex items-center gap-1">
-                            <Calendar className="h-4 w-4 text-gold" />
+                            <CalendarIcon className="h-4 w-4 text-gold" />
                             {format(new Date(booking.booking_date + 'T12:00:00'), 'MMM d, yyyy')}
                           </span>
                           <span className="flex items-center gap-1">
@@ -375,6 +523,79 @@ export default function AdminPage() {
             )}
           </CardContent>
         </Card>
+        )}
+
+        {/* Availability Management */}
+        {activeTab === 'availability' && (
+          <Card className="glass-card border-gold/20">
+            <CardHeader>
+               <CardTitle>Manage Availability</CardTitle>
+               <CardDescription>Block or unblock time slots for {dateFilter}</CardDescription>
+            </CardHeader>
+            <CardContent>
+               {availabilityLoading ? (
+                  <div className="flex justify-center py-12">
+                     <Loader2 className="h-8 w-8 animate-spin text-gold" />
+                  </div>
+               ) : (
+                  <div className="space-y-4">
+                     {getSlotsForDate(new Date(dateFilter + 'T12:00:00')).map((slot) => {
+                        const isBlocked = blockedSlots.has(slot.id);
+                        const times = formatTimeRange(slot);
+                        
+                        return (
+                           <div key={slot.id} className="flex items-center justify-between p-4 border border-gold/20 rounded-lg bg-secondary/30">
+                              <div className="space-y-1">
+                                 <div className="flex items-center gap-2">
+                                     <span className="font-semibold text-lg">{times.arrival} - {times.departure}</span>
+                                     {isBlocked && (
+                                         <span className="px-2 py-0.5 text-xs rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
+                                             Blocked
+                                         </span>
+                                     )}
+                                     {!isBlocked && (
+                                         <span className="px-2 py-0.5 text-xs rounded-full bg-green-500/20 text-green-400 border border-green-500/30">
+                                             Available
+                                         </span>
+                                     )}
+                                 </div>
+                                 <p className="text-sm text-muted-foreground">{slot.label} ({slot.type})</p>
+                              </div>
+                              
+                              <Button
+                                 variant={isBlocked ? "outline" : "destructive"}
+                                 className={isBlocked 
+                                    ? "border-green-500/50 hover:bg-green-500/10 hover:text-green-400" 
+                                    : "bg-red-600 hover:bg-red-700 text-white"}
+                                 onClick={() => handleToggleBlock(slot.id, isBlocked)}
+                              >
+                                 {isBlocked ? (
+                                    <>
+                                       <CheckCircle className="mr-2 h-4 w-4" />
+                                       Unblock
+                                    </>
+                                 ) : (
+                                    <>
+                                       <XCircle className="mr-2 h-4 w-4" />
+                                       Block Slot
+                                    </>
+                                 )}
+                              </Button>
+                           </div>
+                        );
+                     })}
+                     
+                     {getSlotsForDate(new Date(dateFilter + 'T12:00:00')).length === 0 && (
+                        <div className="text-center py-8 text-muted-foreground">
+                           No slots configured for this day (Restaurant Closed?)
+                        </div>
+                     )}
+                  </div>
+               )}
+            </CardContent>
+          </Card>
+        )}
+
 
         {/* Edit Modal (Overlay) */}
         {editingBooking && (

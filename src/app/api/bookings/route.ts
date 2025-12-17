@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
       phone,
       partySize,
       bookingDate,
+      slotId,
       slotStart,
       slotEnd,
       allergyInfo,
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
 
     // Re-check availability to prevent race conditions
     const { available, currentGuests, remainingCapacity } = 
-      await checkSlotAvailability(bookingDate, slotStart, slotEnd, partySize);
+      await checkSlotAvailability(bookingDate, slotStart, slotEnd, partySize, slotId);
 
     if (!available) {
       return NextResponse.json(

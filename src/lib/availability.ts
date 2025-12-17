@@ -6,6 +6,37 @@ import { MAX_CAPACITY, TimeSlot, getSlotsForDate } from '@/lib/booking-rules';
 import type { SlotAvailability } from '@/types/booking';
 
 /**
+ * Check if a specific date and slot combination is blocked by admin
+ */
+export async function isSlotBlocked(
+  date: string,
+  slotId: string
+): Promise<boolean> {
+  const supabase = createServerClient();
+  const { data } = await supabase
+    .from('blocked_slots')
+    .select('id')
+    .eq('date', date)
+    .eq('slot_id', slotId)
+    .single();
+  
+  return !!data;
+}
+
+/**
+ * Get all blocked slot IDs for a specific date
+ */
+export async function getBlockedSlotIds(date: string): Promise<Set<string>> {
+  const supabase = createServerClient();
+  const { data } = await supabase
+    .from('blocked_slots')
+    .select('slot_id')
+    .eq('date', date);
+  
+  return new Set((data || []).map(row => row.slot_id));
+}
+
+/**
  * Calculate the number of guests during a specific time range
  * by querying overlapping bookings from the database.
  */
@@ -42,17 +73,32 @@ export async function getGuestsInTimeRange(
 
 /**
  * Check if a specific slot is available for a given party size
+ * Optional slotId parameter to check for admin blocks
  */
 export async function checkSlotAvailability(
   date: string,
   slotStart: string,
   slotEnd: string,
-  partySize: number
+  partySize: number,
+  slotId?: string
 ): Promise<{
   available: boolean;
   currentGuests: number;
   remainingCapacity: number;
 }> {
+  // 1. Check if blocked by admin (if slotId provided)
+  if (slotId) {
+    const blocked = await isSlotBlocked(date, slotId);
+    if (blocked) {
+      return {
+        available: false,
+        currentGuests: 0,
+        remainingCapacity: 0,
+      };
+    }
+  }
+
+  // 2. Check capacity
   const currentGuests = await getGuestsInTimeRange(date, slotStart, slotEnd);
   const remainingCapacity = MAX_CAPACITY - currentGuests;
   const available = remainingCapacity >= partySize;
@@ -73,8 +119,27 @@ export async function getAvailabilityForDate(
 ): Promise<SlotAvailability[]> {
   const dateStr = date.toISOString().split('T')[0];
   const slots = getSlotsForDate(date);
+  
+  // Fetch blocked slots for this date to avoid N+1 queries
+  const blockedSlotIds = await getBlockedSlotIds(dateStr);
 
   const availabilityPromises = slots.map(async (slot: TimeSlot) => {
+    // If blocked, return unavailable immediately
+    if (blockedSlotIds.has(slot.id)) {
+      return {
+        slotId: slot.id,
+        arrivalStart: slot.arrivalStart,
+        arrivalEnd: slot.arrivalEnd,
+        slotEnd: slot.slotEnd,
+        label: slot.label,
+        type: slot.type,
+        available: false,
+        currentGuests: 0,
+        remainingCapacity: 0,
+      };
+    }
+
+    // Otherwise check capacity
     const { available, currentGuests, remainingCapacity } =
       await checkSlotAvailability(dateStr, slot.arrivalStart, slot.slotEnd, partySize);
 
