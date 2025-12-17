@@ -99,11 +99,11 @@ export function AllergyStep({
           <ul className="space-y-2 text-sm text-muted-foreground">
             <li className="flex items-start gap-2">
               <span className="text-amber-400 font-bold">•</span>
-              <span><strong className="text-amber-400">🥜 </strong>{t('warnings.peanuts')}</span>
+              <span><strong className="text-amber-400">{t('warnings.peanutsLabel')}: </strong>{t('warnings.peanuts')}</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-amber-400 font-bold">•</span>
-              <span><strong className="text-amber-400">🐟 </strong>{t('warnings.fishGluten')}</span>
+              <span><strong className="text-amber-400">{t('warnings.fishGlutenLabel')}: </strong>{t('warnings.fishGluten')}</span>
             </li>
           </ul>
         </div>

@@ -22,7 +22,7 @@ export default async function Home() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative pt-32 pb-12 px-6 flex-none">
+      <section className="relative pt-26 pb-12 px-6 flex-none">
         {/* Subtle Background Glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-gold/5 rounded-full blur-3xl -z-10" />
 
@@ -37,9 +37,11 @@ export default async function Home() {
             {t('hero.title')}
           </h2>
           
-          <p className="text-lg text-muted-foreground font-light leading-relaxed">
-            {t('hero.subtitle')}
-          </p>
+          {t('hero.subtitle') && (
+            <p className="text-lg text-muted-foreground font-light leading-relaxed">
+              {t('hero.subtitle')}
+            </p>
+          )}
         </div>
       </section>
 

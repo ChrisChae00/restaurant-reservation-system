@@ -2,7 +2,7 @@
   "landing": {
     "title": "Group Reservation",
     "subtitle": "Reserve a table for your group of 7-14 people",
-    "description": "Welcome to our group reservation system. Please read the following information carefully before proceeding.",
+    "description": "",
     "rules": {
       "title": "Important Information",
       "groupSize": "This reservation system is for groups of 7 to 14 people only.",
@@ -91,8 +91,10 @@
     },
     "warnings": {
       "title": "Important Allergen Information",
-      "peanuts": "Peanuts: May be present in our kitchen. Guests with severe allergies should reconsider dining with us.",
-      "fishGluten": "Fish/Gluten: Our meat marinades contain soy sauce and fish sauce. Please inform us in advance if you cannot consume these."
+      "peanutsLabel": "Peanuts",
+      "peanuts": "May be present in our kitchen. Guests with severe allergies should reconsider dining with us.",
+      "fishGlutenLabel": "Fish/Gluten",
+      "fishGluten": "Our meat marinades contain soy sauce and fish sauce. Please inform us in advance if you cannot consume these."
     },
     "back": "Back",
     "continue": "Continue"
@@ -130,7 +132,7 @@
     "notice": {
       "noCharge": "No immediate charge.",
       "secure": "Your card is securely saved for reservation guarantee only.",
-      "penalty": "A fee of $20 CAD per person applies only if you cancel within 48 hours or fail to show up."
+      "penalty": "A cancellation fee of $20 CAD per person applies if you cancel less than 48 hours before your reservation or fail to show up."
     },
     "card": {
       "label": "Credit or Debit Card"
@@ -175,7 +177,7 @@
     "hero": {
       "badge": "Montreal's Finest",
       "title": "Group Reservations",
-      "subtitle": "Unforgettable dining for groups of 7-14 guests.",
+      "subtitle": "Welcome to our group reservation system. For parties of 7-14 guests, please review the following information to ensure a seamless dining experience.",
       "contact": "For larger groups (15+), please contact us at"
     },
     "footer": {

@@ -2,7 +2,7 @@
   "landing": {
     "title": "Réservation de Groupe",
     "subtitle": "Réservez une table pour votre groupe de 7 à 14 personnes",
-    "description": "Bienvenue dans notre système de réservation de groupe. Veuillez lire attentivement les informations suivantes avant de continuer.",
+    "description": "",
     "rules": {
       "title": "Informations Importantes",
       "groupSize": "Ce système de réservation est réservé aux groupes de 7 à 14 personnes.",
@@ -91,8 +91,10 @@
     },
     "warnings": {
       "title": "Informations Importantes sur les Allergènes",
-      "peanuts": "Arachides: Peuvent être présentes dans notre cuisine. Les invités ayant des allergies sévères devraient reconsidérer leur visite.",
-      "fishGluten": "Poisson/Gluten: Nos marinades de viande contiennent de la sauce soja et de la sauce de poisson. Veuillez nous informer à l'avance si vous ne pouvez pas en consommer."
+      "peanutsLabel": "Arachides",
+      "peanuts": "Peuvent être présentes dans notre cuisine. Les invités ayant des allergies sévères devraient reconsidérer leur visite.",
+      "fishGlutenLabel": "Poisson/Gluten",
+      "fishGluten": "Nos marinades de viande contiennent de la sauce soja et de la sauce de poisson. Veuillez nous informer à l'avance si vous ne pouvez pas en consommer."
     },
     "back": "Retour",
     "continue": "Continuer"
@@ -130,7 +132,7 @@
     "notice": {
       "noCharge": "Aucun frais immédiat.",
       "secure": "Votre carte est sauvegardée de façon sécuritaire uniquement pour la garantie de réservation.",
-      "penalty": "Des frais de 20 $ CAD par personne s'appliquent uniquement si vous annulez dans les 48 heures ou si vous ne vous présentez pas."
+      "penalty": "Des frais de 20 $ CAD par personne s'appliquent pour les annulations effectuées moins de 48 heures à l'avance ou en cas de non-présentation."
     },
     "card": {
       "label": "Carte de Crédit ou Débit"
@@ -175,7 +177,7 @@
     "hero": {
       "badge": "L'excellence à Montréal",
       "title": "Réservations de Groupe",
-      "subtitle": "Une expérience inoubliable pour 7 à 14 convives.",
+      "subtitle": "Bienvenue dans notre système de réservation de groupe. Pour les groupes de 7 à 14 invités, veuillez consulter les informations suivantes pour garantir une expérience optimale.",
       "contact": "Pour les groupes de plus de 15 personnes, contactez-nous au"
     },
     "footer": {

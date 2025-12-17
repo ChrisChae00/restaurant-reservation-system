@@ -65,11 +65,7 @@ export function LandingStep({
     <Card className="glass-card border-none shadow-none bg-transparent">
       <CardContent className="space-y-8 p-0">
         
-        {/* Minimal Header */}
-        <div className="text-center space-y-2">
-           <h3 className="text-xl font-medium text-foreground">{t('title')}</h3>
-           <p className="text-sm text-muted-foreground">{t('description')}</p>
-        </div>
+        {/* Header Removed as per request */}
 
         {/* Input Section - Centered & Clean */}
         <div className="flex flex-col items-center space-y-6 pt-4">
