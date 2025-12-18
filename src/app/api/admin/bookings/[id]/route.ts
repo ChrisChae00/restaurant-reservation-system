@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { checkSlotAvailability } from '@/lib/availability';
-import { sendConfirmationEmail } from '@/lib/email';
+import { sendConfirmationEmail, sendCancellationEmail } from '@/lib/email';
 
 // PATCH /api/admin/bookings/[id]
 export async function PATCH(
@@ -37,6 +37,11 @@ export async function PATCH(
             .single();
 
         if (error) throw error;
+        
+        // Send cancellation email to customer
+        sendCancellationEmail(data).catch(err =>
+          console.error('Failed to send cancellation email:', err)
+        );
         
         return NextResponse.json({ success: true, booking: data });
     }

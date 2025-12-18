@@ -182,10 +182,10 @@ function generateEnglishEmail(booking: Booking): string {
     
     <div class="details-box">
       <div class="section-title">📋 Reservation Details</div>
-      <p>📅 <strong>Date:</strong> ${formatDateEn(booking.booking_date)}</p>
-      <p>⏰ <strong>Time:</strong> ${formatTime(booking.slot_start)} - ${formatTime(booking.slot_end)}</p>
-      <p>👥 <strong>Number of Guests:</strong> ${booking.party_size}</p>
-      <p>📍 <strong>Address:</strong> 917 Rue Rachel E, Montreal, QC H2J 2J2</p>
+      <p><strong>Date:</strong> ${formatDateEn(booking.booking_date)}</p>
+      <p><strong>Time:</strong> ${formatTime(booking.slot_start)} - ${formatTime(booking.slot_end)}</p>
+      <p><strong>Number of Guests:</strong> ${booking.party_size}</p>
+      <p><strong>Address:</strong> 917 Rue Rachel E, Montreal, QC H2J 2J2</p>
     </div>
 
     <div class="section">
@@ -245,9 +245,6 @@ function generateEnglishEmail(booking: Booking): string {
 `;
 }
 
-/**
- * Generate French confirmation email
- */
 function generateFrenchEmail(booking: Booking): string {
   return `
 <!DOCTYPE html>
@@ -287,10 +284,10 @@ function generateFrenchEmail(booking: Booking): string {
     
     <div class="details-box">
       <div class="section-title">📋 Détails de la réservation</div>
-      <p>📅 <strong>Date :</strong> ${formatDateFr(booking.booking_date)}</p>
-      <p>⏰ <strong>Heure :</strong> ${formatTime(booking.slot_start)} - ${formatTime(booking.slot_end)}</p>
-      <p>👥 <strong>Nombre de convives :</strong> ${booking.party_size}</p>
-      <p>📍 <strong>Adresse :</strong> 917 rue Rachel E, Montréal (QC) H2J 2J2</p>
+      <p><strong>Date :</strong> ${formatDateFr(booking.booking_date)}</p>
+      <p><strong>Heure :</strong> ${formatTime(booking.slot_start)} - ${formatTime(booking.slot_end)}</p>
+      <p><strong>Nombre de convives :</strong> ${booking.party_size}</p>
+      <p><strong>Adresse :</strong> 917 rue Rachel E, Montréal (QC) H2J 2J2</p>
     </div>
 
     <div class="section">
@@ -349,3 +346,161 @@ function generateFrenchEmail(booking: Booking): string {
 </html>
 `;
 }
+
+/**
+ * Send cancellation email to customer (English OR French based on preference)
+ * Sent when admin cancels the reservation without charge
+ */
+export async function sendCancellationEmail(booking: Booking): Promise<void> {
+  const lang = booking.email_language || 'en';
+  
+  const subject = lang === 'en'
+    ? `Reservation Cancellation – ${RESTAURANT_NAME}`
+    : `Annulation de votre réservation – ${RESTAURANT_NAME}`;
+  
+  const html = lang === 'en' 
+    ? generateEnglishCancellationEmail(booking)
+    : generateFrenchCancellationEmail(booking);
+
+  try {
+    await transporter.sendMail({
+      from: `"${RESTAURANT_NAME}" <${RESTAURANT_EMAIL}>`,
+      to: booking.email,
+      subject,
+      html,
+    });
+    console.log('Cancellation email sent successfully to:', booking.email, '(language:', lang, ')');
+  } catch (error) {
+    console.error('Failed to send cancellation email:', error);
+    // Don't throw - email failure shouldn't block cancellation
+  }
+}
+
+/**
+ * Generate English cancellation email
+ */
+function generateEnglishCancellationEmail(booking: Booking): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; color: #333; max-width: 650px; margin: 0 auto; padding: 20px; line-height: 1.6; }
+    .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #d4af37; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+    .header h1 { margin: 0; font-size: 24px; }
+    .content { padding: 25px; background: #f8f9fa; border: 1px solid #e9ecef; }
+    .intro { margin-bottom: 20px; }
+    .details-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #d4af37; }
+    .details-box p { margin: 8px 0; }
+    .notice-box { background: #d4edda; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #28a745; }
+    .contact { margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 8px; }
+    .footer { text-align: center; padding: 20px; background: #1a1a2e; color: #d4af37; border-radius: 0 0 10px 10px; }
+    a { color: #d4af37; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Reservation Cancellation</h1>
+  </div>
+  
+  <div class="content">
+    <div class="intro">
+      <p>Dear ${booking.first_name},</p>
+    </div>
+    
+    <div class="details-box">
+      <div style="font-weight: bold; color: #1a1a2e; margin-bottom: 10px; border-bottom: 2px solid #d4af37; padding-bottom: 5px;">📋 Reservation Details</div>
+      <p><strong>Date:</strong> ${formatDateEn(booking.booking_date)}</p>
+      <p><strong>Time:</strong> ${formatTime(booking.slot_start)} - ${formatTime(booking.slot_end)}</p>
+      <p><strong>Number of Guests:</strong> ${booking.party_size}</p>
+    </div>
+
+    <div class="notice-box">
+      <p><strong>✓ No Charges Applied</strong></p>
+      <p>We would like to inform you that your reservation has been cancelled <strong>without any fee</strong>.</p>
+    </div>
+
+    <div class="contact">
+      <p>If you have any questions, please feel free to contact us:</p>
+      <p>Email : <a href="mailto:lunagroupreservation@gmail.com">lunagroupreservation@gmail.com</a></p>
+      <p>📞 514-834-8710 (Français)<br/>📞 514-224-8710 (English)</p>
+    </div>
+
+    <p style="margin-top: 20px;">We hope to have the opportunity to welcome you and provide an excellent dining experience on another occasion.</p>
+    <p>Have a wonderful day!</p>
+    <p><em>– ${RESTAURANT_NAME}</em></p>
+  </div>
+  
+  <div class="footer">
+    <strong>${RESTAURANT_NAME}</strong>
+  </div>
+</body>
+</html>
+`;
+}
+
+/**
+ * Generate French cancellation email
+ */
+function generateFrenchCancellationEmail(booking: Booking): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; color: #333; max-width: 650px; margin: 0 auto; padding: 20px; line-height: 1.6; }
+    .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #d4af37; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+    .header h1 { margin: 0; font-size: 24px; }
+    .content { padding: 25px; background: #f8f9fa; border: 1px solid #e9ecef; }
+    .intro { margin-bottom: 20px; }
+    .details-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #d4af37; }
+    .details-box p { margin: 8px 0; }
+    .notice-box { background: #d4edda; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #28a745; }
+    .contact { margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 8px; }
+    .footer { text-align: center; padding: 20px; background: #1a1a2e; color: #d4af37; border-radius: 0 0 10px 10px; }
+    a { color: #d4af37; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Annulation de Réservation</h1>
+  </div>
+  
+  <div class="content">
+    <div class="intro">
+      <p>Cher/Chère ${booking.first_name},</p>
+    </div>
+    
+    <div class="details-box">
+      <div style="font-weight: bold; color: #1a1a2e; margin-bottom: 10px; border-bottom: 2px solid #d4af37; padding-bottom: 5px;">📋 Détails de la réservation</div>
+      <p><strong>Date :</strong> ${formatDateFr(booking.booking_date)}</p>
+      <p><strong>Heure :</strong> ${formatTime(booking.slot_start)} - ${formatTime(booking.slot_end)}</p>
+      <p><strong>Nombre de convives :</strong> ${booking.party_size}</p>
+    </div>
+
+    <div class="notice-box">
+      <p><strong>✓ Aucuns frais appliqués</strong></p>
+      <p>Nous vous informons que votre réservation a été annulée <strong>sans aucuns frais</strong>.</p>
+    </div>
+
+    <div class="contact">
+      <p>Si vous avez des questions, n'hésitez pas à nous contacter :</p>
+      <p>Email : <a href="mailto:lunagroupreservation@gmail.com">lunagroupreservation@gmail.com</a></p>
+      <p>📞 514-834-8710 (Français)<br/>📞 514-224-8710 (English)</p>
+    </div>
+
+    <p style="margin-top: 20px;">Nous espérons avoir l'occasion de vous accueillir et de vous offrir une excellente expérience gastronomique une prochaine fois.</p>
+    <p>Passez une excellente journée !</p>
+    <p><em>– ${RESTAURANT_NAME}</em></p>
+  </div>
+  
+  <div class="footer">
+    <strong>${RESTAURANT_NAME}</strong>
+  </div>
+</body>
+</html>
+`;
+}
+
