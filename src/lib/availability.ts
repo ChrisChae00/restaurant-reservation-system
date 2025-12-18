@@ -37,8 +37,42 @@ export async function getBlockedSlotIds(date: string): Promise<Set<string>> {
 }
 
 /**
+ * Check if a slot is past the 1-hour cutoff (Montreal timezone)
+ * Returns true if current time is within 1 hour of slot start
+ */
+function isSlotPastCutoff(dateStr: string, slotStart: string): boolean {
+  // Get current time in Montreal timezone
+  const now = new Date();
+  const montrealFormatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Montreal',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+  
+  const parts = montrealFormatter.formatToParts(now);
+  const getPart = (type: string) => parts.find(p => p.type === type)?.value || '00';
+  
+  const montrealNowStr = `${getPart('year')}-${getPart('month')}-${getPart('day')}T${getPart('hour')}:${getPart('minute')}:${getPart('second')}`;
+  const montrealNow = new Date(montrealNowStr);
+  
+  // Parse slot start time
+  const slotDateTime = new Date(`${dateStr}T${slotStart}:00`);
+  
+  // Cutoff is 1 hour before slot start
+  const cutoffTime = new Date(slotDateTime.getTime() - 60 * 60 * 1000);
+  
+  return montrealNow >= cutoffTime;
+}
+
+/**
  * Calculate the number of guests during a specific time range
  * by querying overlapping bookings from the database.
+ * Includes pending, confirmed, and completed reservations
  */
 export async function getGuestsInTimeRange(
   date: string,
@@ -48,14 +82,14 @@ export async function getGuestsInTimeRange(
   const supabase = createServerClient();
 
   // Query for overlapping bookings
-  // For fixed slots, we can do exact match on slot times
+  // Include pending to block slots when reservation is pending approval
   const { data: bookings, error } = await supabase
     .from('bookings')
     .select('party_size')
     .eq('booking_date', date)
     .eq('slot_start', slotStart)
     .eq('slot_end', slotEnd)
-    .in('status', ['confirmed', 'completed']);
+    .in('status', ['pending', 'confirmed', 'completed']);
 
   if (error) {
     console.error('Error fetching overlapping bookings:', error);
@@ -124,7 +158,7 @@ export async function getAvailabilityForDate(
   const blockedSlotIds = await getBlockedSlotIds(dateStr);
 
   const availabilityPromises = slots.map(async (slot: TimeSlot) => {
-    // If blocked, return unavailable immediately
+    // 1. Check if blocked by admin
     if (blockedSlotIds.has(slot.id)) {
       return {
         slotId: slot.id,
@@ -139,7 +173,22 @@ export async function getAvailabilityForDate(
       };
     }
 
-    // Otherwise check capacity
+    // 2. Check if past the 1-hour cutoff (same-day bookings only)
+    if (isSlotPastCutoff(dateStr, slot.arrivalStart)) {
+      return {
+        slotId: slot.id,
+        arrivalStart: slot.arrivalStart,
+        arrivalEnd: slot.arrivalEnd,
+        slotEnd: slot.slotEnd,
+        label: slot.label,
+        type: slot.type,
+        available: false,
+        currentGuests: 0,
+        remainingCapacity: 0,
+      };
+    }
+
+    // 3. Otherwise check capacity
     const { available, currentGuests, remainingCapacity } =
       await checkSlotAvailability(dateStr, slot.arrivalStart, slot.slotEnd, partySize);
 
@@ -158,3 +207,4 @@ export async function getAvailabilityForDate(
 
   return Promise.all(availabilityPromises);
 }
+
