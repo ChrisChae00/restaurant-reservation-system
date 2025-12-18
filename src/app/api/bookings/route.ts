@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
       slotStart,
       slotEnd,
       allergyInfo,
+      emailLanguage,
       stripeCustomerId,
       stripePaymentMethodId,
     } = validationResult.data;
@@ -73,6 +74,7 @@ export async function POST(request: NextRequest) {
         stripe_customer_id: stripeCustomerId,
         stripe_payment_method_id: stripePaymentMethodId,
         status: 'pending',
+        email_language: emailLanguage || 'en',
       })
       .select()
       .single();

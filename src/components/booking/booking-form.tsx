@@ -12,7 +12,7 @@ import {
   CardGuaranteeStep,
   ConfirmationStep,
 } from './steps';
-import { BOOKING_STEPS, type BookingStep, type ConfirmedBooking } from '@/types/booking';
+import { BOOKING_STEPS, type BookingStep, type ConfirmedBooking, type EmailLanguage } from '@/types/booking';
 import { format } from 'date-fns';
 
 interface FormData {
@@ -28,6 +28,7 @@ interface FormData {
   lastName: string;
   email: string;
   phone: string;
+  emailLanguage: EmailLanguage;
   // Step 3
   acceptedMenuPolicy: boolean;
   // Step 4
@@ -50,6 +51,7 @@ const initialFormData: FormData = {
   lastName: '',
   email: '',
   phone: '',
+  emailLanguage: 'en',
   acceptedMenuPolicy: false,
   hasAllergies: false,
   allergyInfo: '',
@@ -114,6 +116,7 @@ export function BookingForm() {
           slotStart: formData.slotStart,
           slotEnd: formData.slotEnd,
           allergyInfo: formData.hasAllergies ? formData.allergyInfo : null,
+          emailLanguage: formData.emailLanguage,
           stripeCustomerId,
           stripePaymentMethodId,
         }),
@@ -216,6 +219,7 @@ export function BookingForm() {
           lastName={formData.lastName}
           email={formData.email}
           phone={formData.phone}
+          emailLanguage={formData.emailLanguage}
           onDateChange={(date) => updateFormData('date', date)}
           onSlotChange={(id, start, end) => {
             updateFormData('slotId', id);
@@ -223,6 +227,7 @@ export function BookingForm() {
             updateFormData('slotEnd', end);
           }}
           onContactChange={(field, value) => updateFormData(field, value)}
+          onEmailLanguageChange={(lang) => updateFormData('emailLanguage', lang)}
           onNext={handleNext}
           onBack={handleBack}
         />

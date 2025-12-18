@@ -105,6 +105,7 @@ export const createBookingRequestSchema = z.object({
   slotStart: z.string().regex(/^\d{2}:\d{2}$/),
   slotEnd: z.string().regex(/^\d{2}:\d{2}$/),
   allergyInfo: z.string().max(1000).optional().nullable(),
+  emailLanguage: z.enum(['en', 'fr']).optional(),
   stripeCustomerId: z.string().min(1),
   stripePaymentMethodId: z.string().min(1),
 });

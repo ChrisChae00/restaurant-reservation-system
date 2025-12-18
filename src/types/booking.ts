@@ -1,6 +1,7 @@
 // Type Definitions for Group Booking System
 
 export type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'noshow_charged';
+export type EmailLanguage = 'en' | 'fr';
 
 export interface Booking {
   id: string;
@@ -21,6 +22,7 @@ export interface Booking {
   stripe_customer_id: string;
   stripe_payment_method_id: string;
   status: BookingStatus;
+  email_language: EmailLanguage;
   penalty_charged_at: string | null;
   penalty_amount: number | null;
   penalty_payment_intent_id: string | null;
@@ -38,6 +40,7 @@ export interface CreateBookingInput {
   allergy_info?: string;
   stripe_customer_id: string;
   stripe_payment_method_id: string;
+  email_language?: EmailLanguage;
 }
 
 // Multi-step form data
@@ -55,6 +58,7 @@ export interface BookingFormData {
   lastName: string;
   email: string;
   phone: string;
+  emailLanguage: EmailLanguage;
   
   // Step 3: Menu Policy
   acceptedMenuPolicy: boolean;

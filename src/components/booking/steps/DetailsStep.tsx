@@ -3,7 +3,7 @@
 // Step 2: Details - Date, Time Slot, and Contact Information
 import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
-import { CalendarDays, Clock, User, Mail, Phone, Loader2, AlertTriangle } from 'lucide-react';
+import { CalendarDays, Clock, User, Mail, Phone, Loader2, AlertTriangle, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { isRestaurantOpen, formatTimeRange } from '@/lib/booking-rules';
 import { format, addDays, isBefore, startOfDay } from 'date-fns';
-import type { SlotAvailability } from '@/types/booking';
+import type { SlotAvailability, EmailLanguage } from '@/types/booking';
 
 interface DetailsStepProps {
   partySize: number;
@@ -23,9 +23,11 @@ interface DetailsStepProps {
   lastName: string;
   email: string;
   phone: string;
+  emailLanguage: EmailLanguage;
   onDateChange: (date: Date | undefined) => void;
   onSlotChange: (slotId: string, start: string, end: string) => void;
   onContactChange: (field: 'firstName' | 'lastName' | 'email' | 'phone', value: string) => void;
+  onEmailLanguageChange: (lang: EmailLanguage) => void;
   onNext: () => void;
   onBack: () => void;
 }
@@ -40,9 +42,11 @@ export function DetailsStep({
   lastName,
   email,
   phone,
+  emailLanguage,
   onDateChange,
   onSlotChange,
   onContactChange,
+  onEmailLanguageChange,
   onNext,
   onBack,
 }: DetailsStepProps) {
@@ -303,6 +307,48 @@ export function DetailsStep({
               )}
             </div>
 
+            {/* Email Language Selection - Compact & Inline */}
+            <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1">
+              <div className="flex items-center gap-3">
+                 <span className="text-xs text-muted-foreground whitespace-nowrap">{t('emailLanguage.label')}:</span>
+                 <div className="flex gap-2">
+                    <label className={`cursor-pointer px-3 py-1 rounded-md text-xs font-medium transition-all border ${
+                      emailLanguage === 'en' 
+                        ? 'bg-gold/20 border-gold text-gold-light' 
+                        : 'bg-transparent border-white/10 text-muted-foreground hover:bg-gold/5 hover:border-gold/30 hover:text-foreground'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="emailLanguage"
+                        value="en"
+                        checked={emailLanguage === 'en'}
+                        onChange={() => onEmailLanguageChange('en')}
+                        className="sr-only"
+                      />
+                      English
+                    </label>
+                    <label className={`cursor-pointer px-3 py-1 rounded-md text-xs font-medium transition-all border ${
+                      emailLanguage === 'fr' 
+                        ? 'bg-gold/20 border-gold text-gold-light' 
+                        : 'bg-transparent border-white/10 text-muted-foreground hover:bg-gold/5 hover:border-gold/30 hover:text-foreground'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="emailLanguage"
+                        value="fr"
+                        checked={emailLanguage === 'fr'}
+                        onChange={() => onEmailLanguageChange('fr')}
+                        className="sr-only"
+                      />
+                      Français
+                    </label>
+                 </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground/60 ml-1">
+                {t('emailLanguage.description')}
+              </p>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="phone" className="flex items-center gap-1 text-sm">
                 <Phone className="h-3 w-3 text-gold" />
@@ -326,6 +372,8 @@ export function DetailsStep({
             <p className="text-xs text-muted-foreground text-center pt-2">
               {t('depositNotice')}
             </p>
+
+
           </div>
         )}
 

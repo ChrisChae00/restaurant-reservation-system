@@ -6,7 +6,8 @@
 // ============================================
 export const MAX_CAPACITY = 42; // Maximum guests at any given time
 export const NO_SHOW_FEE_PER_PERSON = 20; // CAD (will be 2000 cents in Stripe)
-export const CANCELLATION_WINDOW_HOURS = 48;
+export const CANCELLATION_WINDOW_DAYS = 7; // 1 week prior to reservation
+export const GUEST_CHANGE_WINDOW_HOURS = 12; // 12 hours prior to reservation
 
 // ============================================
 // PARTY SIZE RULES

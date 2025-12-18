@@ -9,7 +9,7 @@
       "fixedSlots": "All group reservations are for fixed time slots.",
       "menuRequired": "Group menu is mandatory. À la carte (individual ordering) is not available for groups.",
       "deposit": "A credit card is required to guarantee your reservation.",
-      "noShowPolicy": "A fee of $20 CAD per person applies for no-shows or cancellations within 48 hours."
+      "noShowPolicy": "A no-show fee of $20 per person applies if: cancellation after deadline (1 week prior), guest changes not communicated 12 hours in advance, or no-show."
     },
     "partySize": {
       "label": "How many guests?",
@@ -58,6 +58,10 @@
       "phonePlaceholder": "(514) 555-0123"
     },
     "depositNotice": "Reservation is confirmed only after completing the final step.",
+    "emailLanguage": {
+      "label": "Confirmation Email Language",
+      "description": "Select your preferred language for the confirmation email"
+    },
     "back": "Back",
     "continue": "Continue"
   },
@@ -106,7 +110,7 @@
     "rules": {
       "headcount": {
         "title": "Final Headcount",
-        "description": "Please confirm the exact number of guests 48 hours before your visit."
+        "description": "Please confirm the exact number of guests 12 hours before your reservation."
       },
       "oneBill": {
         "title": "One Bill Policy",
@@ -118,7 +122,7 @@
       },
       "alcohol": {
         "title": "Alcohol Policy",
-        "description": "Beverages over 20% alcohol are not permitted. Wine and beer only."
+        "description": "You can bring your own drink (wine and beer only). Beverages over 20% alcohol are not permitted."
       }
     },
     "agreement": "I agree to all house rules listed above",
@@ -132,7 +136,7 @@
     "notice": {
       "noCharge": "No immediate charge.",
       "secure": "Your card is securely saved for reservation guarantee only.",
-      "penalty": "A cancellation fee of $20 CAD per person applies if you cancel less than 48 hours before your reservation or fail to show up."
+      "penalty": "A no-show fee of $20 CAD per person applies for cancellations less than 1 week before your reservation, guest changes not communicated 12 hours in advance, or failure to arrive."
     },
     "card": {
       "label": "Credit or Debit Card"
@@ -155,9 +159,9 @@
     "emailSent": "We will send a confirmation to",
     "reminder": "Please remember:",
     "reminderItems": {
-      "headcount": "If your party size changes, please notify us at least 48 hours before your reservation",
+      "headcount": "If your party size changes, please notify us at least 12 hours before your reservation",
       "arrival": "Please arrive on time to enjoy your full dining experience",
-      "cancellation": "Cancellations less than 48 hours before your reservation: $20 CAD per person fee applies"
+      "cancellation": "Cancellations less than 1 week before your reservation: $20 CAD per person fee applies"
     },
     "newReservation": "Make Another Reservation"
   },

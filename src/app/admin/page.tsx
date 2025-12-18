@@ -12,7 +12,8 @@ import {
   CheckCircle, 
   XCircle, 
   Loader2, 
-  RefreshCw, 
+  RefreshCw,
+  Globe,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -490,6 +491,10 @@ export default function AdminPage() {
                         </div>
                         <div className="text-sm text-muted-foreground">
                           {booking.email} • {booking.phone}
+                        </div>
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1" title="Preferred Language">
+                          <Globe className="h-4 w-4 text-gold" />
+                          <span>{booking.email_language === 'fr' ? 'Français' : 'English'}</span>
                         </div>
                         {booking.allergy_info && (
                           <div className="text-sm text-amber-400 flex items-center gap-1">
