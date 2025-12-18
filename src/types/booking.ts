@@ -1,6 +1,6 @@
 // Type Definitions for Group Booking System
 
-export type BookingStatus = 'confirmed' | 'cancelled' | 'completed' | 'noshow_charged';
+export type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'noshow_charged';
 
 export interface Booking {
   id: string;

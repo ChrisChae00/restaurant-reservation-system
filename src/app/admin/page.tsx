@@ -37,6 +37,7 @@ import { getSlotsForDate, TimeSlot, formatTimeRange } from '@/lib/booking-rules'
 
 
 const statusColors: Record<BookingStatus, string> = {
+  pending: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
   confirmed: 'bg-green-500/20 text-green-400 border-green-500/30',
   cancelled: 'bg-red-500/20 text-red-400 border-red-500/30',
   completed: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
@@ -44,10 +45,11 @@ const statusColors: Record<BookingStatus, string> = {
 };
 
 const statusLabels: Record<BookingStatus, string> = {
-  confirmed: 'Confirmed',
-  cancelled: 'Cancelled',
-  completed: 'Completed',
-  noshow_charged: 'No-Show (Charged)',
+  pending: '승인 대기',
+  confirmed: '확정됨',
+  cancelled: '취소됨',
+  completed: '완료됨',
+  noshow_charged: '노쇼 (청구됨)',
 };
 
 export default function AdminPage() {
@@ -157,7 +159,7 @@ export default function AdminPage() {
   };
 
   const handleChargePenalty = async (bookingId: string) => {
-    if (!confirm('Are you sure you want to charge the no-show penalty for this booking?')) {
+    if (!confirm('이 예약에 노쇼 위약금을 청구하시겠습니까?')) {
       return;
     }
 
@@ -178,27 +180,27 @@ export default function AdminPage() {
         throw new Error(
           (result.error && result.error.issues && result.error.issues[0]?.message) ||
           result.error ||
-          'Failed to charge penalty'
+          '위약금 청구 실패'
         );
       }
 
-      setChargeSuccess(`Successfully charged $${result.chargedAmount} CAD`);
-      fetchBookings(); // Refresh list
+      setChargeSuccess(`$${result.chargedAmount} CAD 청구 완료`);
+      fetchBookings();
     } catch (error) {
       console.error('Charge error:', error);
-      setChargeError(error instanceof Error ? error.message : 'Failed to charge penalty');
+      setChargeError(error instanceof Error ? error.message : '위약금 청구 실패');
     } finally {
       setChargingId(null);
     }
   };
 
-  // Cancel without charge
+  // 예약 취소 (청구 없이)
   const handleCancelBooking = async (bookingId: string) => {
-    if (!confirm('Are you sure you want to cancel this booking WITHOUT charging penalty?')) {
+    if (!confirm('위약금 없이 이 예약을 취소하시겠습니까?')) {
       return;
     }
 
-    setChargingId(bookingId); // Use chargingId for loading state
+    setChargingId(bookingId);
     setChargeError(null);
     setChargeSuccess(null);
 
@@ -210,14 +212,45 @@ export default function AdminPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to cancel booking');
+        throw new Error('예약 취소 실패');
       }
 
-      setChargeSuccess('Booking cancelled successfully (No charge)');
+      setChargeSuccess('예약이 취소되었습니다 (청구 없음)');
       fetchBookings();
     } catch (error) {
       console.error('Cancel error:', error);
-      setChargeError('Failed to cancel booking');
+      setChargeError('예약 취소 실패');
+    } finally {
+      setChargingId(null);
+    }
+  };
+
+  // 예약 확정 (pending -> confirmed)
+  const handleConfirmBooking = async (bookingId: string) => {
+    if (!confirm('이 예약을 확정하시겠습니까? 손님에게 확정 이메일이 발송됩니다.')) {
+      return;
+    }
+
+    setChargingId(bookingId);
+    setChargeError(null);
+    setChargeSuccess(null);
+
+    try {
+      const response = await fetch(`/api/admin/bookings/${bookingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'confirmed' }),
+      });
+
+      if (!response.ok) {
+        throw new Error('예약 확정 실패');
+      }
+
+      setChargeSuccess('예약이 확정되었습니다. 손님에게 이메일이 발송되었습니다.');
+      fetchBookings();
+    } catch (error) {
+      console.error('Confirm error:', error);
+      setChargeError('예약 확정 실패');
     } finally {
       setChargingId(null);
     }
@@ -257,12 +290,12 @@ export default function AdminPage() {
         throw new Error('Failed to update booking');
       }
 
-      setChargeSuccess('Booking updated successfully');
+      setChargeSuccess('예약이 수정되었습니다');
       setEditingBooking(null);
       fetchBookings();
     } catch (error) {
       console.error('Update error:', error);
-      setChargeError('Failed to update booking');
+      setChargeError('예약 수정 실패');
     } finally {
       setIsUpdating(false);
     }
@@ -281,24 +314,24 @@ export default function AdminPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gold-light">Admin Dashboard</h1>
-            <p className="text-muted-foreground">Manage group reservations</p>
+            <h1 className="text-3xl font-bold text-gold-light">관리자 대시보드</h1>
+            <p className="text-muted-foreground">단체 예약 관리</p>
           </div>
           <Button onClick={fetchBookings} variant="outline" className="border-gold/30">
             <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
+            새로고침
           </Button>
         </div>
 
         {/* Filters */}
         <Card className="glass-card border-gold/20">
           <CardHeader>
-            <CardTitle className="text-lg">Filters</CardTitle>
+            <CardTitle className="text-lg">필터</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex gap-4 flex-wrap">
               <div className="space-y-2 flex flex-col">
-                <Label>Date</Label>
+                <Label>날짜</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
@@ -311,7 +344,7 @@ export default function AdminPage() {
                       {selectedDate ? (
                         format(selectedDate, "PPP")
                       ) : (
-                        <span>Pick a date</span>
+                        <span>날짜 선택</span>
                       )}
                       <CalendarIcon className="ml-auto h-4 w-4 opacity-50 text-gold" />
                     </Button>
@@ -335,17 +368,18 @@ export default function AdminPage() {
                 </Popover>
               </div>
               <div className="space-y-2">
-                <Label>Status</Label>
+                <Label>상태</Label>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="w-[200px] bg-input border-gold/20">
-                    <SelectValue placeholder="All statuses" />
+                    <SelectValue placeholder="모든 상태" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="confirmed">Confirmed</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="noshow_charged">No-Show (Charged)</SelectItem>
+                    <SelectItem value="all">모든 상태</SelectItem>
+                    <SelectItem value="pending">승인 대기</SelectItem>
+                    <SelectItem value="confirmed">확정됨</SelectItem>
+                    <SelectItem value="cancelled">취소됨</SelectItem>
+                    <SelectItem value="completed">완료됨</SelectItem>
+                    <SelectItem value="noshow_charged">노쇼 (청구됨)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -363,7 +397,7 @@ export default function AdminPage() {
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            Bookings
+            예약 목록
             {activeTab === 'bookings' && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />
             )}
@@ -376,7 +410,7 @@ export default function AdminPage() {
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            Availability Block
+            예약 가능 시간 관리
             {activeTab === 'availability' && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />
             )}
@@ -404,9 +438,9 @@ export default function AdminPage() {
         {activeTab === 'bookings' && (
         <Card className="glass-card border-gold/20">
           <CardHeader>
-            <CardTitle>Bookings</CardTitle>
+            <CardTitle>예약 목록</CardTitle>
             <CardDescription>
-              {bookings.length} booking{bookings.length !== 1 ? 's' : ''} found
+              {bookings.length}건의 예약이 있습니다
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -416,7 +450,7 @@ export default function AdminPage() {
               </div>
             ) : bookings.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
-                No bookings found for the selected filters
+                선택한 필터에 해당하는 예약이 없습니다
               </div>
             ) : (
               <div className="space-y-4">
@@ -451,7 +485,7 @@ export default function AdminPage() {
                           </span>
                           <span className="flex items-center gap-1">
                             <Users className="h-4 w-4 text-gold" />
-                            {booking.party_size} guests
+                            {booking.party_size}명
                           </span>
                         </div>
                         <div className="text-sm text-muted-foreground">
@@ -460,28 +494,61 @@ export default function AdminPage() {
                         {booking.allergy_info && (
                           <div className="text-sm text-amber-400 flex items-center gap-1">
                             <AlertTriangle className="h-4 w-4" />
-                            Allergies: {booking.allergy_info}
+                            알레르기: {booking.allergy_info}
                           </div>
                         )}
                         {booking.penalty_amount && (
                           <div className="text-sm text-green-400">
-                            Penalty charged: ${booking.penalty_amount / 100} CAD
+                            위약금 청구: ${booking.penalty_amount / 100} CAD
                           </div>
                         )}
                       </div>
 
                       {/* Actions */}
-                      <div className="flex gap-2 items-center">
+                      <div className="flex gap-2 items-center flex-wrap">
                          <Button
                             variant="outline"
                             size="sm"
                             onClick={() => handleEditClick(booking)}
                             className="border-gold/30 hover:border-gold"
-                            title="Edit"
+                            title="수정"
                           >
-                            Edit
+                            수정
                           </Button>
                         
+                        {booking.status === 'pending' && (
+                          <>
+                            <Button
+                              size="sm"
+                              onClick={() => handleConfirmBooking(booking.id)}
+                              disabled={chargingId === booking.id}
+                              className="bg-green-600 hover:bg-green-700 text-white border-0 shadow-sm"
+                              title="예약 확정"
+                            >
+                              {chargingId === booking.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <CheckCircle className="h-4 w-4 mr-1" />
+                              )}
+                              확정
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleCancelBooking(booking.id)}
+                              disabled={chargingId === booking.id}
+                              className="bg-red-600 hover:bg-red-700 text-white border-0 shadow-sm"
+                              title="예약 취소"
+                            >
+                               {chargingId === booking.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                "취소"
+                              )}
+                            </Button>
+                          </>
+                        )}
+
                         {booking.status === 'confirmed' && (
                           <>
                             <Button
@@ -490,12 +557,12 @@ export default function AdminPage() {
                               onClick={() => handleCancelBooking(booking.id)}
                               disabled={chargingId === booking.id}
                               className="bg-red-600 hover:bg-red-700 text-white border-0 shadow-sm"
-                              title="Cancel without Charge"
+                              title="취소 (청구 없음)"
                             >
                                {chargingId === booking.id ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
                               ) : (
-                                "Cancel"
+                                "취소"
                               )}
                             </Button>
                             
@@ -504,14 +571,14 @@ export default function AdminPage() {
                               onClick={() => handleChargePenalty(booking.id)}
                               disabled={chargingId === booking.id}
                               className="!bg-amber-500 !hover:bg-amber-600 !text-black border-0 font-medium shadow-sm"
-                              title="Charge Penalty"
+                              title="노쇼 위약금 청구"
                             >
                               {chargingId === booking.id ? (
                                 <Loader2 className="h-4 w-4 animate-spin mr-1" />
                               ) : (
                                 <DollarSign className="h-4 w-4 mr-1" />
                               )}
-                              No-Show (Charge)
+                              노쇼 (청구)
                             </Button>
                           </>
                         )}
@@ -529,8 +596,8 @@ export default function AdminPage() {
         {activeTab === 'availability' && (
           <Card className="glass-card border-gold/20">
             <CardHeader>
-               <CardTitle>Manage Availability</CardTitle>
-               <CardDescription>Block or unblock time slots for {dateFilter}</CardDescription>
+               <CardTitle>예약 가능 시간 관리</CardTitle>
+               <CardDescription>{dateFilter} 의 시간대 차단/해제</CardDescription>
             </CardHeader>
             <CardContent>
                {availabilityLoading ? (
@@ -550,16 +617,16 @@ export default function AdminPage() {
                                      <span className="font-semibold text-lg">{times.arrival} - {times.departure}</span>
                                      {isBlocked && (
                                          <span className="px-2 py-0.5 text-xs rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
-                                             Blocked
+                                             차단됨
                                          </span>
                                      )}
                                      {!isBlocked && (
                                          <span className="px-2 py-0.5 text-xs rounded-full bg-green-500/20 text-green-400 border border-green-500/30">
-                                             Available
+                                             예약 가능
                                          </span>
                                      )}
                                  </div>
-                                 <p className="text-sm text-muted-foreground">{slot.label} ({slot.type})</p>
+                                 <p className="text-sm text-muted-foreground">{slot.label} ({slot.type === 'early' ? '이른 시간' : '늦은 시간'})</p>
                               </div>
                               
                               <Button
@@ -572,12 +639,12 @@ export default function AdminPage() {
                                  {isBlocked ? (
                                     <>
                                        <CheckCircle className="mr-2 h-4 w-4" />
-                                       Unblock
+                                       차단 해제
                                     </>
                                  ) : (
                                     <>
                                        <XCircle className="mr-2 h-4 w-4" />
-                                       Block Slot
+                                       시간대 차단
                                     </>
                                  )}
                               </Button>
@@ -587,7 +654,7 @@ export default function AdminPage() {
                      
                      {getSlotsForDate(new Date(dateFilter + 'T12:00:00')).length === 0 && (
                         <div className="text-center py-8 text-muted-foreground">
-                           No slots configured for this day (Restaurant Closed?)
+                           이 날짜에 설정된 시간대가 없습니다 (휴무일?)
                         </div>
                      )}
                   </div>
@@ -602,21 +669,21 @@ export default function AdminPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
             <Card className="w-full max-w-lg bg-background border-gold/20 max-h-[90vh] overflow-y-auto">
               <CardHeader>
-                <CardTitle>Edit Booking</CardTitle>
-                <CardDescription>Update booking details for {editingBooking.first_name}</CardDescription>
+                <CardTitle>예약 수정</CardTitle>
+                <CardDescription>{editingBooking.first_name}님의 예약 정보 수정</CardDescription>
               </CardHeader>
               <form onSubmit={handleUpdateBooking}>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                       <Label>First Name</Label>
+                       <Label>이름</Label>
                        <Input 
                          value={editForm.first_name || ''} 
                          onChange={(e) => setEditForm(prev => ({...prev, first_name: e.target.value}))} 
                        />
                     </div>
                     <div className="space-y-2">
-                       <Label>Last Name</Label>
+                       <Label>성</Label>
                        <Input 
                          value={editForm.last_name || ''} 
                          onChange={(e) => setEditForm(prev => ({...prev, last_name: e.target.value}))} 
@@ -626,14 +693,14 @@ export default function AdminPage() {
                   
                   <div className="grid grid-cols-2 gap-4">
                      <div className="space-y-2">
-                       <Label>Email</Label>
+                       <Label>이메일</Label>
                        <Input 
                          value={editForm.email || ''} 
                          onChange={(e) => setEditForm(prev => ({...prev, email: e.target.value}))} 
                        />
                     </div>
                     <div className="space-y-2">
-                       <Label>Phone</Label>
+                       <Label>전화번호</Label>
                        <Input 
                          value={editForm.phone || ''} 
                          onChange={(e) => setEditForm(prev => ({...prev, phone: e.target.value}))} 
@@ -643,7 +710,7 @@ export default function AdminPage() {
 
                   <div className="grid grid-cols-3 gap-4">
                      <div className="space-y-2">
-                       <Label>Date</Label>
+                       <Label>날짜</Label>
                        <Input 
                          type="date"
                          value={editForm.booking_date?.toString() || ''} 
@@ -651,7 +718,7 @@ export default function AdminPage() {
                        />
                     </div>
                      <div className="space-y-2">
-                       <Label>Start Time</Label>
+                       <Label>시작 시간</Label>
                        <Input 
                          type="time"
                          value={editForm.slot_start || ''} 
@@ -659,7 +726,7 @@ export default function AdminPage() {
                        />
                     </div>
                     <div className="space-y-2">
-                       <Label>End Time</Label>
+                       <Label>종료 시간</Label>
                        <Input 
                          type="time"
                          value={editForm.slot_end || ''} 
@@ -669,7 +736,7 @@ export default function AdminPage() {
                   </div>
 
                    <div className="space-y-2">
-                       <Label>Party Size</Label>
+                       <Label>인원수</Label>
                        <Input 
                          type="number"
                          value={editForm.party_size || ''} 
@@ -678,7 +745,7 @@ export default function AdminPage() {
                     </div>
 
                     <div className="space-y-2">
-                       <Label>Allergies</Label>
+                       <Label>알레르기</Label>
                        <Input 
                          value={editForm.allergy_info || ''} 
                          onChange={(e) => setEditForm(prev => ({...prev, allergy_info: e.target.value}))} 
@@ -687,10 +754,10 @@ export default function AdminPage() {
 
                 </CardContent>
                 <div className="p-6 pt-0 flex justify-end gap-3">
-                  <Button type="button" variant="ghost" onClick={() => setEditingBooking(null)}>Cancel</Button>
+                  <Button type="button" variant="ghost" onClick={() => setEditingBooking(null)}>취소</Button>
                   <Button type="submit" disabled={isUpdating}>
                     {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Save Changes
+                    저장
                   </Button>
                 </div>
               </form>

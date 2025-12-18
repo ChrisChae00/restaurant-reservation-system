@@ -142,21 +142,22 @@
     "submit": "Confirmer la Réservation"
   },
   "confirmation": {
-    "title": "Réservation Confirmée!",
-    "subtitle": "Merci pour votre réservation",
+    "title": "Réservation Reçue!",
+    "subtitle": "Votre réservation est en attente d'approbation",
+    "pendingMessage": "Notre équipe examinera votre réservation et vous enverra un courriel de confirmation sous peu.",
     "details": {
-      "confirmationNumber": "Numéro de Confirmation",
+      "confirmationNumber": "Numéro de Référence",
       "date": "Date",
       "time": "Heure",
       "guests": "Nombre d'Invités",
       "name": "Nom"
     },
-    "emailSent": "Un courriel de confirmation a été envoyé à",
+    "emailSent": "Nous enverrons une confirmation à",
     "reminder": "N'oubliez pas:",
     "reminderItems": {
-      "headcount": "Confirmer le nombre final 48 heures avant",
-      "arrival": "Arriver à l'heure pour profiter de votre expérience complète",
-      "cancellation": "Annuler au moins 48 heures à l'avance pour éviter les pénalités"
+      "headcount": "Si le nombre de personnes change, veuillez nous aviser au moins 48 heures avant votre réservation",
+      "arrival": "Arrivez à l'heure pour profiter de votre expérience complète",
+      "cancellation": "Annulation moins de 48 heures avant votre réservation: frais de 20 $ CAD par personne"
     },
     "newReservation": "Faire une Autre Réservation"
   },

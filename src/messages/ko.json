@@ -142,21 +142,22 @@
     "submit": "예약 확정"
   },
   "confirmation": {
-    "title": "예약이 확정되었습니다!",
-    "subtitle": "예약해 주셔서 감사합니다",
+    "title": "예약이 접수되었습니다!",
+    "subtitle": "승인 대기 중입니다",
+    "pendingMessage": "담당자가 예약을 검토한 후 확정 이메일을 보내드리겠습니다.",
     "details": {
-      "confirmationNumber": "예약 번호",
+      "confirmationNumber": "예약 참조번호",
       "date": "날짜",
       "time": "시간",
       "guests": "인원수",
       "name": "성함"
     },
-    "emailSent": "확인 이메일이 발송되었습니다",
+    "emailSent": "확정 시 이메일이 발송됩니다",
     "reminder": "기억해 주세요:",
     "reminderItems": {
-      "headcount": "48시간 전까지 최종 인원 확정",
+      "headcount": "인원 변동 시 예약 최소 48시간 전에 알려주세요",
       "arrival": "정시에 도착하여 식사 시간을 충분히 즐기세요",
-      "cancellation": "위약금을 피하려면 최소 48시간 전에 취소하세요"
+      "cancellation": "예약 48시간 이내 취소 시 1인당 $20 CAD 수수료가 부과됩니다"
     },
     "newReservation": "새 예약하기"
   },

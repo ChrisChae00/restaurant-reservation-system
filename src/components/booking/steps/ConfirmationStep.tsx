@@ -45,7 +45,6 @@ export function ConfirmationStep({ booking, onNewBooking }: ConfirmationStepProp
           </p>
         </div>
 
-        {/* Booking Details */}
         <div className="grid gap-4">
           <div className="flex items-center gap-4 p-4 rounded-lg bg-secondary/50">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gold/20">
@@ -75,8 +74,16 @@ export function ConfirmationStep({ booking, onNewBooking }: ConfirmationStepProp
             </div>
             <div>
               <p className="text-sm text-muted-foreground">{t('details.guests')}</p>
-              <p className="text-lg font-medium">{booking.partySize} people</p>
+              <p className="text-lg font-medium">{booking.partySize}</p>
             </div>
+          </div>
+        </div>
+
+        {/* Pending Message */}
+        <div className="flex items-start gap-3 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
+          <Clock className="h-5 w-5 text-amber-400 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-amber-400">{t('pendingMessage')}</p>
           </div>
         </div>
 

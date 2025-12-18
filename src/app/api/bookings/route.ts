@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { createBookingRequestSchema } from '@/lib/validations';
 import { checkSlotAvailability } from '@/lib/availability';
+import { sendNewReservationNotification } from '@/lib/email';
 
 export async function POST(request: NextRequest) {
   try {
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest) {
         accepted_house_rules: true,
         stripe_customer_id: stripeCustomerId,
         stripe_payment_method_id: stripePaymentMethodId,
-        status: 'confirmed',
+        status: 'pending',
       })
       .select()
       .single();
@@ -83,6 +84,11 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Send notification email to restaurant manager (non-blocking)
+    sendNewReservationNotification(booking).catch(err => 
+      console.error('Failed to send notification email:', err)
+    );
 
     return NextResponse.json({
       success: true,
@@ -97,7 +103,7 @@ export async function POST(request: NextRequest) {
         slotEnd: booking.slot_end,
         status: booking.status,
       },
-      message: 'Reservation confirmed! You will receive a confirmation email shortly.',
+      message: 'Reservation received! We will confirm your booking shortly.',
     });
   } catch (error) {
     console.error('Booking creation error:', error);

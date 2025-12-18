@@ -142,21 +142,22 @@
     "submit": "Confirm Reservation"
   },
   "confirmation": {
-    "title": "Reservation Confirmed!",
-    "subtitle": "Thank you for your reservation",
+    "title": "Reservation Received!",
+    "subtitle": "Your reservation is pending approval",
+    "pendingMessage": "Our team will review your reservation and send you a confirmation email shortly.",
     "details": {
-      "confirmationNumber": "Confirmation Number",
+      "confirmationNumber": "Reference Number",
       "date": "Date",
       "time": "Time",
       "guests": "Number of Guests",
       "name": "Name"
     },
-    "emailSent": "A confirmation email has been sent to",
+    "emailSent": "We will send a confirmation to",
     "reminder": "Please remember:",
     "reminderItems": {
-      "headcount": "Confirm final headcount 48 hours before",
-      "arrival": "Arrive on time to enjoy your full dining experience",
-      "cancellation": "Cancel at least 48 hours in advance to avoid penalties"
+      "headcount": "If your party size changes, please notify us at least 48 hours before your reservation",
+      "arrival": "Please arrive on time to enjoy your full dining experience",
+      "cancellation": "Cancellations less than 48 hours before your reservation: $20 CAD per person fee applies"
     },
     "newReservation": "Make Another Reservation"
   },

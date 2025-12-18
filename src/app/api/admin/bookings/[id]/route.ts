@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { checkSlotAvailability } from '@/lib/availability';
+import { sendConfirmationEmail } from '@/lib/email';
 
 // PATCH /api/admin/bookings/[id]
 export async function PATCH(
@@ -100,6 +101,13 @@ export async function PATCH(
         .single();
 
     if (error) throw error;
+
+    // If status changed to 'confirmed', send confirmation email to customer
+    if (status === 'confirmed') {
+      sendConfirmationEmail(updatedBooking).catch(err =>
+        console.error('Failed to send confirmation email:', err)
+      );
+    }
 
     return NextResponse.json({ success: true, booking: updatedBooking });
 
