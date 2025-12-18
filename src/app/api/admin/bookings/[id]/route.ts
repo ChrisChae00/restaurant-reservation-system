@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { checkSlotAvailability } from '@/lib/availability';
 import { sendConfirmationEmail, sendCancellationEmail } from '@/lib/email';
+import { requireAuth } from '@/lib/auth';
 
 // PATCH /api/admin/bookings/[id]
 export async function PATCH(
@@ -10,6 +11,12 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Check authentication
+    const auth = await requireAuth();
+    if (!auth.authenticated) {
+      return auth.error;
+    }
+
     const { id } = await params;
     const body = await request.json();
     const { 

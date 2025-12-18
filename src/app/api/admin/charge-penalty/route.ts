@@ -5,9 +5,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { chargeNoShowFee } from '@/lib/stripe';
 import { chargePenaltyRequestSchema } from '@/lib/validations';
+import { requireAuth } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
+    // Check authentication
+    const auth = await requireAuth();
+    if (!auth.authenticated) {
+      return auth.error;
+    }
+
     const body = await request.json();
 
     // Validate request

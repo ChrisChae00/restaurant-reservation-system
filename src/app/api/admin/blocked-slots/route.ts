@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
+import { requireAuth } from '@/lib/auth';
 import { z } from 'zod';
 
 const blockSlotSchema = z.object({
@@ -10,6 +11,12 @@ const blockSlotSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    // Check authentication
+    const auth = await requireAuth();
+    if (!auth.authenticated) {
+      return auth.error;
+    }
+
     const body = await request.json();
     const result = blockSlotSchema.safeParse(body);
 
@@ -53,6 +60,12 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    // Check authentication
+    const auth = await requireAuth();
+    if (!auth.authenticated) {
+      return auth.error;
+    }
+
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date');
     const slotId = searchParams.get('slotId');
@@ -85,6 +98,12 @@ export async function DELETE(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    // Check authentication
+    const auth = await requireAuth();
+    if (!auth.authenticated) {
+      return auth.error;
+    }
+
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date');
 

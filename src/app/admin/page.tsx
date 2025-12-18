@@ -2,6 +2,7 @@
 
 // Admin Dashboard - Booking Management
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { 
   Users, 
@@ -14,6 +15,7 @@ import {
   Loader2, 
   RefreshCw,
   Globe,
+  LogOut,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -54,6 +56,7 @@ const statusLabels: Record<BookingStatus, string> = {
 };
 
 export default function AdminPage() {
+  const router = useRouter();
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
   const [editForm, setEditForm] = useState<Partial<Booking>>({});
   const [isUpdating, setIsUpdating] = useState(false);
@@ -70,6 +73,19 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<'bookings' | 'availability'>('bookings');
   const [blockedSlots, setBlockedSlots] = useState<Set<string>>(new Set());
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  // Logout handler
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await fetch('/api/admin/auth', { method: 'DELETE' });
+      router.replace('/admin/login');
+    } catch (error) {
+      console.error('Logout failed:', error);
+      setIsLoggingOut(false);
+    }
+  };
 
 
   const fetchBookings = async () => {
@@ -318,10 +334,25 @@ export default function AdminPage() {
             <h1 className="text-3xl font-bold text-gold-light">관리자 대시보드</h1>
             <p className="text-muted-foreground">단체 예약 관리</p>
           </div>
-          <Button onClick={fetchBookings} variant="outline" className="border-gold/30">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            새로고침
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={fetchBookings} variant="outline" className="border-gold/30">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              새로고침
+            </Button>
+            <Button 
+              onClick={handleLogout} 
+              variant="outline" 
+              className="border-red-500/30 hover:bg-red-500/10 hover:text-red-400"
+              disabled={isLoggingOut}
+            >
+              {isLoggingOut ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <LogOut className="h-4 w-4 mr-2" />
+              )}
+              로그아웃
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}

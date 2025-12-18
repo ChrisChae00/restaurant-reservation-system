@@ -6,6 +6,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { createBookingRequestSchema } from '@/lib/validations';
 import { checkSlotAvailability } from '@/lib/availability';
 import { sendNewReservationNotification } from '@/lib/email';
+import { requireAuth } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
@@ -116,9 +117,15 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET /api/bookings - List bookings (for admin)
+// GET /api/bookings - List bookings (for admin only)
 export async function GET(request: NextRequest) {
   try {
+    // Check authentication - this is admin-only
+    const auth = await requireAuth();
+    if (!auth.authenticated) {
+      return auth.error;
+    }
+
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date');
     const status = searchParams.get('status');

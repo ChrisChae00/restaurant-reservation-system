@@ -3,6 +3,21 @@
 import { z } from 'zod';
 import { MIN_PARTY_SIZE, MAX_PARTY_SIZE } from '@/lib/booking-rules';
 
+// HTML sanitization helper to prevent XSS
+const sanitizeHtml = (str: string) => str
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#x27;')
+  .replace(/\//g, '&#x2F;');
+
+// Safe string schema that sanitizes HTML
+const safeString = (minLen = 1, maxLen = 50) => z
+  .string()
+  .min(minLen, `Minimum length is ${minLen}`)
+  .max(maxLen, `Maximum length is ${maxLen}`)
+  .transform(sanitizeHtml);
+
 // Step 1: Landing validation
 export const landingSchema = z.object({
   partySize: z
@@ -20,14 +35,8 @@ export const detailsSchema = z.object({
   slotId: z.string().min(1, 'Please select a time slot'),
   slotStart: z.string().regex(/^\d{2}:\d{2}$/, 'Invalid time format'),
   slotEnd: z.string().regex(/^\d{2}:\d{2}$/, 'Invalid time format'),
-  firstName: z
-    .string()
-    .min(1, 'First name is required')
-    .max(50, 'First name is too long'),
-  lastName: z
-    .string()
-    .min(1, 'Last name is required')
-    .max(50, 'Last name is too long'),
+  firstName: safeString(1, 50),
+  lastName: safeString(1, 50),
   email: z.string().email('Please enter a valid email address'),
   phone: z
     .string()
@@ -104,7 +113,7 @@ export const createBookingRequestSchema = z.object({
   slotId: z.string(),
   slotStart: z.string().regex(/^\d{2}:\d{2}$/),
   slotEnd: z.string().regex(/^\d{2}:\d{2}$/),
-  allergyInfo: z.string().max(1000).optional().nullable(),
+  allergyInfo: z.string().max(1000).transform(sanitizeHtml).optional().nullable(),
   emailLanguage: z.enum(['en', 'fr']).optional(),
   stripeCustomerId: z.string().min(1),
   stripePaymentMethodId: z.string().min(1),
