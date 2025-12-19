@@ -78,15 +78,17 @@ export async function getSetupIntent(
 
 /**
  * Charge a no-show fee using the saved payment method
+ * If customAmountCents is provided, use that instead of calculating from partySize
  */
 export async function chargeNoShowFee(
   customerId: string,
   paymentMethodId: string,
   partySize: number,
-  bookingId: string
+  bookingId: string,
+  customAmountCents?: number
 ): Promise<Stripe.PaymentIntent> {
   const stripe = getStripe();
-  const amount = NO_SHOW_FEE_PER_PERSON * partySize;
+  const amount = customAmountCents ?? (NO_SHOW_FEE_PER_PERSON * partySize);
 
   const paymentIntent = await stripe.paymentIntents.create({
     amount,
@@ -95,11 +97,14 @@ export async function chargeNoShowFee(
     payment_method: paymentMethodId,
     off_session: true,
     confirm: true,
-    description: `No-show fee for booking ${bookingId} (${partySize} guests)`,
+    description: customAmountCents 
+      ? `No-show fee for booking ${bookingId} (custom amount)`
+      : `No-show fee for booking ${bookingId} (${partySize} guests)`,
     metadata: {
       booking_id: bookingId,
       party_size: partySize.toString(),
       fee_type: 'no_show',
+      custom_amount: customAmountCents ? 'true' : 'false',
     },
   });
 

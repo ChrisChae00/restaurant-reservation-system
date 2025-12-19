@@ -121,6 +121,8 @@ export const createBookingRequestSchema = z.object({
 
 export const chargePenaltyRequestSchema = z.object({
   bookingId: z.string().uuid(),
+  guestCount: z.number().min(1).optional(), // If not provided, charge full party
+  customAmount: z.number().min(1).optional(), // Custom amount in dollars (for testing)
 });
 
 // Type exports

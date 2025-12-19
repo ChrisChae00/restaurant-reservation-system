@@ -504,3 +504,182 @@ function generateFrenchCancellationEmail(booking: Booking): string {
 `;
 }
 
+/**
+ * Send no-show charge notification email to customer (English OR French)
+ * Sent after admin charges the no-show penalty
+ */
+export async function sendNoShowChargeEmail(
+  booking: Booking, 
+  chargedAmount: number, 
+  guestCount: number
+): Promise<void> {
+  const lang = booking.email_language || 'en';
+  
+  const subject = lang === 'en'
+    ? `No-Show Fee Charged – ${RESTAURANT_NAME}`
+    : `Frais de non-présentation – ${RESTAURANT_NAME}`;
+  
+  const html = lang === 'en' 
+    ? generateEnglishNoShowChargeEmail(booking, chargedAmount, guestCount)
+    : generateFrenchNoShowChargeEmail(booking, chargedAmount, guestCount);
+
+  try {
+    await transporter.sendMail({
+      from: `"${RESTAURANT_NAME}" <${RESTAURANT_EMAIL}>`,
+      to: booking.email,
+      subject,
+      html,
+    });
+    console.log('No-show charge email sent successfully to:', booking.email, '(language:', lang, ')');
+  } catch (error) {
+    console.error('Failed to send no-show charge email:', error);
+    // Don't throw - email failure shouldn't block charge process
+  }
+}
+
+/**
+ * Generate English no-show charge email
+ */
+function generateEnglishNoShowChargeEmail(
+  booking: Booking, 
+  chargedAmount: number, 
+  guestCount: number
+): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; color: #333; max-width: 650px; margin: 0 auto; padding: 20px; line-height: 1.6; }
+    .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #d4af37; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+    .header h1 { margin: 0; font-size: 24px; }
+    .content { padding: 25px; background: #f8f9fa; border: 1px solid #e9ecef; }
+    .intro { margin-bottom: 20px; }
+    .details-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #d4af37; }
+    .details-box p { margin: 8px 0; }
+    .charge-box { background: #fff3cd; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107; }
+    .charge-amount { font-size: 24px; font-weight: bold; color: #856404; }
+    .contact { margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 8px; }
+    .footer { text-align: center; padding: 20px; background: #1a1a2e; color: #d4af37; border-radius: 0 0 10px 10px; }
+    a { color: #d4af37; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>No-Show Fee Notification</h1>
+  </div>
+  
+  <div class="content">
+    <div class="intro">
+      <p>Dear ${booking.first_name},</p>
+      <p>We are writing to inform you that a no-show fee has been charged to the credit card on file for your reservation at <strong>${RESTAURANT_NAME}</strong>.</p>
+    </div>
+    
+    <div class="details-box">
+      <div style="font-weight: bold; color: #1a1a2e; margin-bottom: 10px; border-bottom: 2px solid #d4af37; padding-bottom: 5px;">Reservation Details</div>
+      <p><strong>Date:</strong> ${formatDateEn(booking.booking_date)}</p>
+      <p><strong>Time:</strong> ${formatTime(booking.slot_start)} - ${formatTime(booking.slot_end)}</p>
+      <p><strong>Original Party Size:</strong> ${booking.party_size} guests</p>
+    </div>
+
+    <div class="charge-box">
+      <div style="font-weight: bold; color: #856404; margin-bottom: 10px;">Charge Details</div>
+      <p><strong>Guests Charged:</strong> ${guestCount}</p>
+      <p><strong>Rate:</strong> $20 CAD per person</p>
+      <p class="charge-amount">Total Charged: $${chargedAmount} CAD</p>
+    </div>
+
+    <p>This fee has been applied in accordance with our no-show policy, which was provided at the time of booking.</p>
+
+    <div class="contact">
+      <p>If you have any questions regarding this charge, please contact us:</p>
+      <p>Email: <a href="mailto:lunagroupreservation@gmail.com">lunagroupreservation@gmail.com</a></p>
+      <p>Phone: 514-834-8710 (French) / 514-224-8710 (English)</p>
+    </div>
+
+    <p style="margin-top: 20px;">Thank you for your understanding.</p>
+    <p><em>– ${RESTAURANT_NAME}</em></p>
+  </div>
+  
+  <div class="footer">
+    <strong>${RESTAURANT_NAME}</strong>
+  </div>
+</body>
+</html>
+`;
+}
+
+/**
+ * Generate French no-show charge email
+ */
+function generateFrenchNoShowChargeEmail(
+  booking: Booking, 
+  chargedAmount: number, 
+  guestCount: number
+): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; color: #333; max-width: 650px; margin: 0 auto; padding: 20px; line-height: 1.6; }
+    .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #d4af37; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+    .header h1 { margin: 0; font-size: 24px; }
+    .content { padding: 25px; background: #f8f9fa; border: 1px solid #e9ecef; }
+    .intro { margin-bottom: 20px; }
+    .details-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #d4af37; }
+    .details-box p { margin: 8px 0; }
+    .charge-box { background: #fff3cd; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107; }
+    .charge-amount { font-size: 24px; font-weight: bold; color: #856404; }
+    .contact { margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 8px; }
+    .footer { text-align: center; padding: 20px; background: #1a1a2e; color: #d4af37; border-radius: 0 0 10px 10px; }
+    a { color: #d4af37; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Avis de frais de non-présentation</h1>
+  </div>
+  
+  <div class="content">
+    <div class="intro">
+      <p>Cher/Chère ${booking.first_name},</p>
+      <p>Nous vous informons que des frais de non-présentation ont été facturés sur la carte de crédit enregistrée pour votre réservation au <strong>${RESTAURANT_NAME}</strong>.</p>
+    </div>
+    
+    <div class="details-box">
+      <div style="font-weight: bold; color: #1a1a2e; margin-bottom: 10px; border-bottom: 2px solid #d4af37; padding-bottom: 5px;">Détails de la réservation</div>
+      <p><strong>Date :</strong> ${formatDateFr(booking.booking_date)}</p>
+      <p><strong>Heure :</strong> ${formatTime(booking.slot_start)} - ${formatTime(booking.slot_end)}</p>
+      <p><strong>Nombre de convives prévu :</strong> ${booking.party_size}</p>
+    </div>
+
+    <div class="charge-box">
+      <div style="font-weight: bold; color: #856404; margin-bottom: 10px;">Détails de la facturation</div>
+      <p><strong>Convives facturés :</strong> ${guestCount}</p>
+      <p><strong>Tarif :</strong> 20 $ CAD par personne</p>
+      <p class="charge-amount">Total facturé : ${chargedAmount} $ CAD</p>
+    </div>
+
+    <p>Ces frais ont été appliqués conformément à notre politique de non-présentation, qui vous a été communiquée lors de la réservation.</p>
+
+    <div class="contact">
+      <p>Si vous avez des questions concernant cette facturation, veuillez nous contacter :</p>
+      <p>Email : <a href="mailto:lunagroupreservation@gmail.com">lunagroupreservation@gmail.com</a></p>
+      <p>Téléphone : 514-834-8710 (Français) / 514-224-8710 (English)</p>
+    </div>
+
+    <p style="margin-top: 20px;">Nous vous remercions de votre compréhension.</p>
+    <p><em>– ${RESTAURANT_NAME}</em></p>
+  </div>
+  
+  <div class="footer">
+    <strong>${RESTAURANT_NAME}</strong>
+  </div>
+</body>
+</html>
+`;
+}
+

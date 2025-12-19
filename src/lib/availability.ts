@@ -81,14 +81,26 @@ export async function getGuestsInTimeRange(
 ): Promise<number> {
   const supabase = createServerClient();
 
+  // Normalize time format to HH:MM:SS to match PostgreSQL TIME type
+  const normalizeTime = (time: string) => {
+    const parts = time.split(':');
+    if (parts.length === 2) {
+      return `${time}:00`; // HH:MM -> HH:MM:SS
+    }
+    return time; // Already HH:MM:SS
+  };
+
+  const normalizedStart = normalizeTime(slotStart);
+  const normalizedEnd = normalizeTime(slotEnd);
+
   // Query for overlapping bookings
   // Include pending to block slots when reservation is pending approval
   const { data: bookings, error } = await supabase
     .from('bookings')
     .select('party_size')
     .eq('booking_date', date)
-    .eq('slot_start', slotStart)
-    .eq('slot_end', slotEnd)
+    .eq('slot_start', normalizedStart)
+    .eq('slot_end', normalizedEnd)
     .in('status', ['pending', 'confirmed', 'completed']);
 
   if (error) {

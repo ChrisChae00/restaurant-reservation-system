@@ -75,6 +75,12 @@ export default function AdminPage() {
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
+  // Charge Modal State
+  const [chargeModalBooking, setChargeModalBooking] = useState<Booking | null>(null);
+  const [chargeGuestCount, setChargeGuestCount] = useState<number>(0);
+  const [useCustomAmount, setUseCustomAmount] = useState<boolean>(false);
+  const [chargeCustomAmount, setChargeCustomAmount] = useState<string>('');
+
   // Logout handler
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -175,20 +181,39 @@ export default function AdminPage() {
     }
   };
 
-  const handleChargePenalty = async (bookingId: string) => {
-    if (!confirm('이 예약에 노쇼 위약금을 청구하시겠습니까?')) {
-      return;
-    }
+  // Open charge modal
+  const handleOpenChargeModal = (booking: Booking) => {
+    setChargeModalBooking(booking);
+    setChargeGuestCount(booking.party_size); // Default to full party
+    setUseCustomAmount(false);
+    setChargeCustomAmount('');
+  };
 
-    setChargingId(bookingId);
+  // Close charge modal
+  const handleCloseChargeModal = () => {
+    setChargeModalBooking(null);
+    setChargeGuestCount(0);
+    setUseCustomAmount(false);
+    setChargeCustomAmount('');
+  };
+
+  const handleChargePenalty = async () => {
+    if (!chargeModalBooking) return;
+
+    setChargingId(chargeModalBooking.id);
     setChargeError(null);
     setChargeSuccess(null);
+    handleCloseChargeModal();
 
     try {
       const response = await fetch('/api/admin/charge-penalty', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId }),
+        body: JSON.stringify({ 
+          bookingId: chargeModalBooking.id,
+          guestCount: chargeGuestCount,
+          customAmount: useCustomAmount ? parseFloat(chargeCustomAmount) : undefined,
+        }),
       });
 
       const result = await response.json();
@@ -201,7 +226,7 @@ export default function AdminPage() {
         );
       }
 
-      setChargeSuccess(`$${result.chargedAmount} CAD 청구 완료`);
+      setChargeSuccess(`$${result.chargedAmount} CAD 청구 완료 (${result.chargedGuestCount}명)`);
       fetchBookings();
     } catch (error) {
       console.error('Charge error:', error);
@@ -604,7 +629,7 @@ export default function AdminPage() {
                             
                             <Button
                               size="sm"
-                              onClick={() => handleChargePenalty(booking.id)}
+                              onClick={() => handleOpenChargeModal(booking)}
                               disabled={chargingId === booking.id}
                               className="!bg-amber-500 !hover:bg-amber-600 !text-black border-0 font-medium shadow-sm"
                               title="노쇼 위약금 청구"
@@ -797,6 +822,88 @@ export default function AdminPage() {
                   </Button>
                 </div>
               </form>
+            </Card>
+          </div>
+        )}
+
+        {/* Charge Modal (Overlay) */}
+        {chargeModalBooking && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <Card className="w-full max-w-md bg-background border-gold/20">
+              <CardHeader>
+                <CardTitle>노쇼 위약금 청구</CardTitle>
+                <CardDescription>
+                  {chargeModalBooking.first_name} {chargeModalBooking.last_name}님의 예약
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="p-4 bg-secondary/30 rounded-lg space-y-2">
+                  <p className="text-sm text-muted-foreground">예약 인원: <span className="text-foreground font-medium">{chargeModalBooking.party_size}명</span></p>
+                  <p className="text-sm text-muted-foreground">위약금: <span className="text-foreground font-medium">$20 CAD / 인</span></p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>청구 인원수</Label>
+                  <Select 
+                    value={chargeGuestCount.toString()} 
+                    onValueChange={(val) => setChargeGuestCount(parseInt(val))}
+                    disabled={useCustomAmount}
+                  >
+                    <SelectTrigger className="bg-input border-gold/20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: chargeModalBooking.party_size }, (_, i) => i + 1).map((num) => (
+                        <SelectItem key={num} value={num.toString()}>
+                          {num}명
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center gap-2 mt-4">
+                  <input
+                    type="checkbox"
+                    id="useCustomAmount"
+                    checked={useCustomAmount}
+                    onChange={(e) => setUseCustomAmount(e.target.checked)}
+                    className="rounded border-gold/30"
+                  />
+                  <Label htmlFor="useCustomAmount" className="text-sm cursor-pointer">직접 금액 입력 (테스트용)</Label>
+                </div>
+
+                {useCustomAmount && (
+                  <div className="space-y-2">
+                    <Label>청구 금액 (CAD)</Label>
+                    <Input
+                      type="number"
+                      min="0.5"
+                      step="0.01"
+                      placeholder="예: 1"
+                      value={chargeCustomAmount}
+                      onChange={(e) => setChargeCustomAmount(e.target.value)}
+                      className="bg-input border-gold/20"
+                    />
+                  </div>
+                )}
+
+                <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                  <p className="text-lg font-bold text-amber-400">
+                    청구 예정 금액: ${useCustomAmount && chargeCustomAmount ? parseFloat(chargeCustomAmount) || 0 : chargeGuestCount * 20} CAD
+                  </p>
+                </div>
+              </CardContent>
+              <div className="p-6 pt-0 flex justify-end gap-3">
+                <Button type="button" variant="ghost" onClick={handleCloseChargeModal}>취소</Button>
+                <Button 
+                  onClick={handleChargePenalty}
+                  className="bg-amber-500 hover:bg-amber-600 text-black"
+                >
+                  <DollarSign className="h-4 w-4 mr-1" />
+                  청구하기
+                </Button>
+              </div>
             </Card>
           </div>
         )}
