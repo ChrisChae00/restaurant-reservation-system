@@ -52,16 +52,32 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Minimal Footer */}
-      <footer className="py-8 px-6 border-t border-border/40">
-        <div className="container mx-auto flex flex-col md:flex-row justify-between items-center text-xs text-muted-foreground gap-4">
-          <p>© {new Date().getFullYear()} Resto Luna. {t('footer.rights')}</p>
-          <p>
-            {t('hero.contact')} {' '}
-            <a href="tel:5145550123" className="text-gold hover:underline transition-colors">
-              (514) 555-0123
-            </a>
-          </p>
+      {/* Premium Footer */}
+      <footer className="py-8 px-6 border-t border-gold/10 bg-background/30 backdrop-blur-sm">
+        <div className="container mx-auto max-w-4xl">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-8">
+            <div className="text-center md:text-left space-y-2">
+              <h3 className="text-base font-serif text-gold-light tracking-wide">Restaurant Coréen Luna</h3>
+              <p className="text-[10px] text-muted-foreground/60 uppercase tracking-[0.2em] font-light">
+                © {new Date().getFullYear()} • {t('footer.rights')}
+              </p>
+            </div>
+            
+            <div className="flex flex-col gap-1.5 text-sm">
+              <a href={`tel:${t('footer.phone_fr').replace(/\D/g, '')}`} className="group flex items-center gap-3 hover:text-gold transition-colors">
+                <span className="w-20 text-[10px] uppercase tracking-[0.15em] text-gold/80 font-medium">Français:</span>
+                <span className="font-light tracking-wide group-hover:text-gold-light opacity-90">{t('footer.phone_fr')}</span>
+              </a>
+              <a href={`tel:${t('footer.phone_en').replace(/\D/g, '')}`} className="group flex items-center gap-3 hover:text-gold transition-colors">
+                <span className="w-20 text-[10px] uppercase tracking-[0.15em] text-gold/80 font-medium">English:</span>
+                <span className="font-light tracking-wide group-hover:text-gold-light opacity-90">{t('footer.phone_en')}</span>
+              </a>
+              <a href="mailto:lunagroupreservation@gmail.com" className="group flex items-center gap-3 hover:text-gold transition-colors">
+                <span className="w-20 text-[10px] uppercase tracking-[0.15em] text-gold/80 font-medium">Email:</span>
+                <span className="font-light tracking-wide group-hover:text-gold-light opacity-90">lunagroupreservation@gmail.com</span>
+              </a>
+            </div>
+          </div>
         </div>
       </footer>
     </main>

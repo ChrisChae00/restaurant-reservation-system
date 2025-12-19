@@ -150,6 +150,7 @@ export function formatTimeRange(slot: TimeSlot): {
 
 // Contact information
 export const RESTAURANT_CONTACT = {
-  phone: '(514) 555-0123',
-  email: 'reservations@restoluna.com',
+  phone_en: '(514) 224-8710',
+  phone_fr: '(514) 834-8710',
+  email: 'lunagroupreservation@gmail.com',
 };

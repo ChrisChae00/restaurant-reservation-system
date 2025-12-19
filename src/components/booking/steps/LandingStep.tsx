@@ -156,16 +156,20 @@ export function LandingStep({
             <div className="p-4 rounded border border-border/50 bg-secondary/10">
                <p className="text-sm text-foreground font-medium mb-1">{t('partySize.largeGroup.title')}</p>
               <p className="text-xs text-muted-foreground mb-4">{t('partySize.largeGroup.description')}</p>
-              <div className="flex flex-col gap-2 text-sm items-center">
-                <a href={`tel:${RESTAURANT_CONTACT.phone}`} className="flex items-center gap-2 hover:text-gold transition-colors">
-                  <Phone className="h-3 w-3" />
-                  {RESTAURANT_CONTACT.phone}
-                </a>
-                <a href={`mailto:${RESTAURANT_CONTACT.email}`} className="flex items-center gap-2 hover:text-gold transition-colors">
-                  <Mail className="h-3 w-3" />
-                  {RESTAURANT_CONTACT.email}
-                </a>
-              </div>
+                <div className="flex flex-col gap-1 w-full max-w-xs">
+                  <a href={`tel:${RESTAURANT_CONTACT.phone_fr.replace(/\D/g, '')}`} className="flex items-center gap-2 hover:text-gold transition-colors justify-center md:justify-start">
+                    <Phone className="h-3 w-3" />
+                    <span className="flex-1 text-left">Français: {RESTAURANT_CONTACT.phone_fr}</span>
+                  </a>
+                  <a href={`tel:${RESTAURANT_CONTACT.phone_en.replace(/\D/g, '')}`} className="flex items-center gap-2 hover:text-gold transition-colors justify-center md:justify-start">
+                    <Phone className="h-3 w-3" />
+                    <span className="flex-1 text-left">English: {RESTAURANT_CONTACT.phone_en}</span>
+                  </a>
+                  <a href={`mailto:${RESTAURANT_CONTACT.email}`} className="flex items-center gap-2 hover:text-gold transition-colors mt-1 justify-center md:justify-start">
+                    <Mail className="h-3 w-3" />
+                    <span>{RESTAURANT_CONTACT.email}</span>
+                  </a>
+                </div>
             </div>
           </div>
         )}

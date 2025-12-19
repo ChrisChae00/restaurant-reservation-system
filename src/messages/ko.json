@@ -22,8 +22,9 @@
       "largeGroup": {
         "title": "15명 이상",
         "description": "대규모 그룹은 직접 연락해 주세요.",
-        "phone": "(514) 555-0123",
-        "email": "reservations@restoluna.com"
+        "phone_fr": "(514) 834-8710",
+        "phone_en": "(514) 224-8710",
+        "email": "lunagroupreservation@gmail.com"
       }
     },
     "agreement": "단체 예약 정책을 읽고 이해했습니다",
@@ -187,7 +188,9 @@
     },
     "footer": {
       "rights": "All rights reserved.",
-      "contact": "문의"
+      "contact": "문의",
+      "phone_en": "(514) 224-8710",
+      "phone_fr": "(514) 834-8710"
     }
   }
 }

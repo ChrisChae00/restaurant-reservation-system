@@ -22,8 +22,9 @@
       "largeGroup": {
         "title": "For 15+ Guests",
         "description": "Please contact us directly for large group arrangements.",
-        "phone": "(514) 555-0123",
-        "email": "reservations@restoluna.com"
+        "phone_fr": "(514) 834-8710",
+        "phone_en": "(514) 224-8710",
+        "email": "lunagroupreservation@gmail.com"
       }
     },
     "agreement": "I have read and understand the group reservation policies",
@@ -187,7 +188,9 @@
     },
     "footer": {
       "rights": "All rights reserved.",
-      "contact": "Contact"
+      "contact": "Contact",
+      "phone_en": "(514) 224-8710",
+      "phone_fr": "(514) 834-8710"
     }
   }
 }
