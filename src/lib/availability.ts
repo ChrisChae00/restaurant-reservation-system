@@ -2,7 +2,7 @@
 // Handles fixed time slot capacity calculations
 
 import { createServerClient } from '@/lib/supabase/server';
-import { MAX_CAPACITY, TimeSlot, getSlotsForDate } from '@/lib/booking-rules';
+import { TimeSlot, getSlotsForDate } from '@/lib/booking-rules';
 import type { SlotAvailability } from '@/types/booking';
 
 /**
@@ -118,8 +118,8 @@ export async function getGuestsInTimeRange(
 }
 
 /**
- * Check if a specific slot is available for a given party size
- * Optional slotId parameter to check for admin blocks
+ * Check if a specific slot is available
+ * One team per slot - if any booking exists, slot is unavailable
  */
 export async function checkSlotAvailability(
   date: string,
@@ -144,15 +144,14 @@ export async function checkSlotAvailability(
     }
   }
 
-  // 2. Check capacity
+  // 2. Check if any booking exists for this slot (one team per slot)
   const currentGuests = await getGuestsInTimeRange(date, slotStart, slotEnd);
-  const remainingCapacity = MAX_CAPACITY - currentGuests;
-  const available = remainingCapacity >= partySize;
+  const hasExistingBooking = currentGuests > 0;
 
   return {
-    available,
+    available: !hasExistingBooking,
     currentGuests,
-    remainingCapacity,
+    remainingCapacity: hasExistingBooking ? 0 : partySize, // If available, user can book their party size
   };
 }
 
