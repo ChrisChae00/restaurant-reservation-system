@@ -18,6 +18,7 @@ export interface Booking {
   allergy_info: string | null;
   accepted_menu_policy: boolean;
   accepted_house_rules: boolean;
+  accepted_cancellation_policy: boolean;
   special_notes: string | null;
   stripe_customer_id: string;
   stripe_payment_method_id: string;

@@ -59,7 +59,7 @@ export default async function Home() {
             <div className="text-center md:text-left space-y-2">
               <h3 className="text-base font-serif text-gold-light tracking-wide">Restaurant Coréen Luna</h3>
               <p className="text-[10px] text-muted-foreground/60 uppercase tracking-[0.2em] font-light">
-                © {new Date().getFullYear()} • {t('footer.rights')}
+                © {new Date().getFullYear()} • {t('footer.rights')} • <Link href="/privacy" className="hover:text-gold transition-colors">Privacy Policy</Link>
               </p>
             </div>
             

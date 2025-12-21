@@ -72,6 +72,7 @@ export async function POST(request: NextRequest) {
         allergy_info: allergyInfo || null,
         accepted_menu_policy: true,
         accepted_house_rules: true,
+        accepted_cancellation_policy: true,
         stripe_customer_id: stripeCustomerId,
         stripe_payment_method_id: stripePaymentMethodId,
         status: 'pending',
