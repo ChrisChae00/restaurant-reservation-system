@@ -15,12 +15,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Group Reservations | Resto Luna",
-  description: "Reserve a table for your group of 7-14 people at Resto Luna, Montreal's finest dining experience.",
+  title: "Group Reservations | Restaurant Coréen Luna",
+  description: "Reserve a table for your group of 7-14 people at Restaurant Coréen Luna, Montreal's finest dining experience.",
   keywords: ["restaurant", "reservation", "Montreal", "group dining", "fine dining"],
   openGraph: {
-    title: "Group Reservations | Resto Luna",
-    description: "Reserve a table for your group of 7-14 people at Resto Luna",
+    title: "Group Reservations | Restaurant Coréen Luna",
+    description: "Reserve a table for your group of 7-14 people at Restaurant Coréen Luna",
     type: "website",
   },
 };
