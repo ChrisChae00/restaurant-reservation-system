@@ -220,7 +220,13 @@ export function BookingForm() {
           email={formData.email}
           phone={formData.phone}
           emailLanguage={formData.emailLanguage}
-          onDateChange={(date) => updateFormData('date', date)}
+          onDateChange={(date) => {
+            updateFormData('date', date);
+            // Reset slot selection when date changes to prevent selecting unavailable slots
+            updateFormData('slotId', '');
+            updateFormData('slotStart', '');
+            updateFormData('slotEnd', '');
+          }}
           onSlotChange={(id, start, end) => {
             updateFormData('slotId', id);
             updateFormData('slotStart', start);
