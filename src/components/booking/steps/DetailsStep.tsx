@@ -56,9 +56,11 @@ export function DetailsStep({
   const [error, setError] = useState<string | null>(null);
 
   const today = startOfDay(new Date());
+  // Reservations can only be made starting from 1 week from today
+  // Based on day of week, not exact time (e.g., if today is Tuesday, next Tuesday is the first available date)
+  const minDate = addDays(today, 7);
   const maxDate = addDays(today, 60);
 
-  // Fetch availability when date changes
   // Fetch availability when date changes
   useEffect(() => {
     // Reset slots if no date is selected
@@ -117,7 +119,7 @@ export function DetailsStep({
   }, [date, partySize]); // Removed 't' and 'onSlotChange' to prevent loop
 
   const isDateDisabled = (dateToCheck: Date): boolean => {
-    if (isBefore(dateToCheck, today)) return true;
+    if (isBefore(dateToCheck, minDate)) return true;
     if (dateToCheck > maxDate) return true;
     if (!isRestaurantOpen(dateToCheck)) return true;
     return false;

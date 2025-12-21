@@ -9,7 +9,7 @@
       "fixedSlots": "All group reservations are for fixed time slots.",
       "menuRequired": "Group menu is mandatory. À la carte (individual ordering) is not available for groups.",
       "deposit": "A credit card is required to guarantee your reservation.",
-      "noShowPolicy": "A no-show fee of $20 per person applies if: cancellation after deadline (1 week prior), guest changes not communicated 12 hours in advance, or no-show."
+      "noShowPolicy": "A no-show fee of $20 per person applies if: cancellation after deadline (1 week prior), guest changes not communicated 24 hours before reservation start time, or no-show."
     },
     "partySize": {
       "label": "How many guests?",
@@ -111,7 +111,7 @@
     "rules": {
       "headcount": {
         "title": "Final Headcount",
-        "description": "Please confirm the exact number of guests 12 hours before your reservation."
+        "description": "Please confirm the exact number of guests 24 hours before your reservation start time (if there are changes)."
       },
       "oneBill": {
         "title": "One Bill Policy",
@@ -137,7 +137,7 @@
     "notice": {
       "noCharge": "No immediate charge.",
       "secure": "Your card is securely saved for reservation guarantee only.",
-      "penalty": "A no-show fee of $20 CAD per person applies for cancellations less than 1 week before your reservation, guest changes not communicated 12 hours in advance, or failure to arrive."
+      "penalty": "A no-show fee of $20 CAD per person applies for cancellations less than 1 week before your reservation, guest changes not communicated 24 hours before reservation start time, or failure to arrive."
     },
     "card": {
       "label": "Credit or Debit Card"
@@ -160,7 +160,7 @@
     "emailSent": "We will send a confirmation to",
     "reminder": "Please remember:",
     "reminderItems": {
-      "headcount": "If your party size changes, please notify us at least 12 hours before your reservation",
+      "headcount": "If your party size changes, please notify us at least 24 hours before your reservation start time",
       "arrival": "Please arrive on time to enjoy your full dining experience",
       "cancellation": "Cancellations less than 1 week before your reservation: $20 CAD per person fee applies"
     },

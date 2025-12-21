@@ -194,7 +194,7 @@ function generateEnglishEmail(booking: Booking): string {
       <p>A fee of $20 per person will apply if:</p>
       <ul>
         <li>The reservation is cancelled less than one week before the reservation date</li>
-        <li>Changes to the number of guests are not communicated at least 12 hours in advance</li>
+        <li>Changes to the number of guests are not communicated at least 24 hours before the reservation start time</li>
         <li>The party does not arrive by the scheduled reservation time</li>
       </ul>
     </div>
@@ -203,7 +203,7 @@ function generateEnglishEmail(booking: Booking): string {
       <div class="section-title">📝 Cancellation & Guest Confirmation</div>
       <ul>
         <li>Cancellations must be made at least 7 days prior to the reservation date</li>
-        <li>The final guest count must be confirmed within 12 hours of the reservation time</li>
+        <li>The final guest count must be confirmed at least 24 hours before the reservation start time (if there are changes)</li>
         <li>A reduction of up to two (2) guests is permitted without penalty</li>
         <li>Failure to confirm may result in a $20 per person no-show fee</li>
       </ul>
@@ -296,7 +296,7 @@ function generateFrenchEmail(booking: Booking): string {
       <p>Des frais de 20 $ par personne seront appliqués si :</p>
       <ul>
         <li>L'annulation est effectuée moins d'une semaine avant la date de réservation</li>
-        <li>Les changements au nombre de convives ne sont pas communiqués au moins 12 heures à l'avance</li>
+        <li>Les changements au nombre de convives ne sont pas communiqués au moins 24 heures avant l'heure de réservation</li>
         <li>Le groupe ne se présente pas ou arrive après l'heure prévue</li>
       </ul>
     </div>
@@ -305,7 +305,7 @@ function generateFrenchEmail(booking: Booking): string {
       <div class="section-title">📝 Annulation et confirmation</div>
       <ul>
         <li>L'annulation doit être effectuée au moins 7 jours avant la réservation</li>
-        <li>Le nombre final de convives doit être confirmé 12 heures avant l'heure de réservation</li>
+        <li>Le nombre final de convives doit être confirmé au moins 24 heures avant l'heure de réservation (en cas de changement)</li>
         <li>Une réduction maximale de deux (2) convives est permise sans frais</li>
         <li>À défaut de confirmation, des frais de 20 $ par personne pourraient s'appliquer</li>
       </ul>

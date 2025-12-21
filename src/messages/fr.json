@@ -9,7 +9,7 @@
       "fixedSlots": "Toutes les réservations de groupe sont pour des créneaux horaires fixes.",
       "menuRequired": "Le menu de groupe est obligatoire. Le menu à la carte n'est pas disponible pour les groupes.",
       "deposit": "Une carte de crédit est requise pour garantir votre réservation.",
-      "noShowPolicy": "Des frais de 20 $ CAD par personne s'appliquent si: annulation après la date limite (1 semaine avant), changement d'invités non communiqué 12 heures à l'avance, ou non-présentation."
+      "noShowPolicy": "Des frais de 20 $ CAD par personne s'appliquent si: annulation après la date limite (1 semaine avant), changement d'invités non communiqué 24 heures avant l'heure de réservation, ou non-présentation."
     },
     "partySize": {
       "label": "Combien d'invités?",
@@ -111,7 +111,7 @@
     "rules": {
       "headcount": {
         "title": "Décompte Final",
-        "description": "Veuillez confirmer le nombre exact d'invités 12 heures avant votre réservation."
+        "description": "Veuillez confirmer le nombre exact d'invités 24 heures avant l'heure de réservation (en cas de changement)."
       },
       "oneBill": {
         "title": "Politique de Facture Unique",
@@ -137,7 +137,7 @@
     "notice": {
       "noCharge": "Aucun frais immédiat.",
       "secure": "Votre carte est sauvegardée de façon sécuritaire uniquement pour la garantie de réservation.",
-      "penalty": "Des frais de 20 $ CAD par personne s'appliquent pour les annulations moins d'une semaine à l'avance, les changements d'invités non communiqués 12 heures à l'avance, ou la non-présentation."
+      "penalty": "Des frais de 20 $ CAD par personne s'appliquent pour les annulations moins d'une semaine à l'avance, les changements d'invités non communiqués 24 heures avant l'heure de réservation, ou la non-présentation."
     },
     "card": {
       "label": "Carte de Crédit ou Débit"
@@ -160,7 +160,7 @@
     "emailSent": "Nous enverrons une confirmation à",
     "reminder": "N'oubliez pas:",
     "reminderItems": {
-      "headcount": "Si le nombre de personnes change, veuillez nous aviser au moins 12 heures avant votre réservation",
+      "headcount": "Si le nombre de personnes change, veuillez nous aviser au moins 24 heures avant l'heure de réservation",
       "arrival": "Arrivez à l'heure pour profiter de votre expérience complète",
       "cancellation": "Annulation moins d'une semaine avant votre réservation: frais de 20 $ CAD par personne"
     },
