@@ -3,7 +3,7 @@
 // Admin Dashboard - Booking Management
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth, isSameDay, parseISO, addWeeks, addMonths } from 'date-fns';
 import { 
   Users, 
   Calendar as CalendarIcon, 
@@ -16,9 +16,11 @@ import {
   RefreshCw,
   Globe,
   LogOut,
+  LayoutDashboard,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
+import { Calendar, CalendarDayButton } from '@/components/ui/calendar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -68,6 +70,15 @@ export default function AdminPage() {
   const [chargingId, setChargingId] = useState<string | null>(null);
   const [chargeError, setChargeError] = useState<string | null>(null);
   const [chargeSuccess, setChargeSuccess] = useState<string | null>(null);
+  
+  // Quick View & Stats State
+  const [showQuickView, setShowQuickView] = useState(false);
+  const [quickViewData, setQuickViewData] = useState<{ pending: Booking[], confirmed: Booking[] }>({ pending: [], confirmed: [] });
+  const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
+  const [monthStats, setMonthStats] = useState<Record<string, { pending: number, confirmed: number, group: number }>>({});
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [confirmedRangeFilter, setConfirmedRangeFilter] = useState<'2w' | '1m' | '2m' | '3m'>('2w');
+  const [pendingCount, setPendingCount] = useState<number>(0);
 
   // Availability Management State
   const [activeTab, setActiveTab] = useState<'bookings' | 'availability'>('bookings');
@@ -83,6 +94,10 @@ export default function AdminPage() {
 
   // Logout handler
   const handleLogout = async () => {
+    if (!confirm('로그아웃 하시겠습니까?')) {
+      return;
+    }
+    
     setIsLoggingOut(true);
     try {
       await fetch('/api/admin/auth', { method: 'DELETE' });
@@ -143,6 +158,43 @@ export default function AdminPage() {
       return () => clearTimeout(timer);
     }
   }, [chargeSuccess, chargeError]);
+
+  // Fetch Dashboard Data (unified API)
+  const fetchDashboardData = async (monthDate: Date = currentMonth, range: string = confirmedRangeFilter) => {
+    setStatsLoading(true);
+    try {
+      const monthStr = format(monthDate, 'yyyy-MM');
+      const response = await fetch(`/api/admin/dashboard?month=${monthStr}&confirmedRange=${range}`, {
+        credentials: 'include'
+      });
+      const data = await response.json();
+      
+      if (data.error) throw new Error(data.error);
+      
+      setMonthStats(data.monthStats || {});
+      setPendingCount(data.pendingCount || 0);
+      setQuickViewData({
+        pending: data.pendingBookings || [],
+        confirmed: data.confirmedBookings || []
+      });
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
+  // Initial load and month change
+  useEffect(() => {
+    fetchDashboardData(currentMonth, confirmedRangeFilter);
+  }, [currentMonth]);
+
+  // Update when Quick View opens or confirmed range changes
+  useEffect(() => {
+    if (showQuickView) {
+      fetchDashboardData(currentMonth, confirmedRangeFilter);
+    }
+  }, [showQuickView, confirmedRangeFilter]);
 
   const handleToggleBlock = async (slotId: string, isCurrentlyBlocked: boolean) => {
     setChargeError(null);
@@ -259,6 +311,7 @@ export default function AdminPage() {
 
       setChargeSuccess('예약이 취소되었습니다 (청구 없음)');
       fetchBookings();
+      fetchDashboardData(currentMonth, confirmedRangeFilter);
     } catch (error) {
       console.error('Cancel error:', error);
       setChargeError('예약 취소 실패');
@@ -290,6 +343,7 @@ export default function AdminPage() {
 
       setChargeSuccess('예약이 확정되었습니다. 손님에게 이메일이 발송되었습니다.');
       fetchBookings();
+      fetchDashboardData(currentMonth, confirmedRangeFilter);
     } catch (error) {
       console.error('Confirm error:', error);
       setChargeError('예약 확정 실패');
@@ -351,104 +405,140 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-background p-3 sm:p-6">
+      <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
           <div>
-            <h1 className="text-3xl font-bold text-gold-light">관리자 대시보드</h1>
-            <p className="text-muted-foreground">단체 예약 관리</p>
+            <h1 className="text-xl sm:text-3xl font-bold text-gold-light">관리자 대시보드</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">단체 예약 관리</p>
           </div>
           <div className="flex gap-2">
-            <Button onClick={fetchBookings} variant="outline" className="border-gold/30">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              새로고침
+            <Button onClick={fetchBookings} variant="outline" size="sm" className="border-gold/30 h-8 sm:h-9 text-xs sm:text-sm">
+              <RefreshCw className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+              <span className="hidden sm:inline">새로고침</span>
+              <span className="sm:hidden">새로</span>
             </Button>
             <Button 
               onClick={handleLogout} 
               variant="outline" 
-              className="border-red-500/30 hover:bg-red-500/10 hover:text-red-400"
+              size="sm"
+              className="border-red-500/30 hover:bg-red-500/10 hover:text-red-400 h-8 sm:h-9 text-xs sm:text-sm"
               disabled={isLoggingOut}
             >
               {isLoggingOut ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2 animate-spin" />
               ) : (
-                <LogOut className="h-4 w-4 mr-2" />
+                <LogOut className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
               )}
-              로그아웃
+              <span className="hidden sm:inline">로그아웃</span>
+              <span className="sm:hidden">로그</span>
             </Button>
           </div>
         </div>
 
-        {/* Filters */}
-        <Card className="glass-card border-gold/20">
-          <CardHeader>
-            <CardTitle className="text-lg">필터</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-4 flex-wrap">
-              <div className="space-y-2 flex flex-col">
-                <Label>날짜</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={"outline"}
-                      className={cn(
-                        "w-[240px] pl-3 text-left font-normal border-gold/20 bg-input hover:bg-gold/5",
-                        !selectedDate && "text-muted-foreground"
-                      )}
-                    >
-                      {selectedDate ? (
-                        format(selectedDate, "PPP")
-                      ) : (
-                        <span>날짜 선택</span>
-                      )}
-                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50 text-gold" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={(date) => date && setSelectedDate(date)}
-                      initialFocus
-                      className="p-3 pointer-events-auto"
-                      classNames={{
-                        head_cell: "text-muted-foreground font-normal text-xs w-10",
-                        cell: "h-12 w-12 text-center text-sm p-0 flex items-center justify-center relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-                        day: "h-10 w-10 p-0 font-normal aria-selected:opacity-100 hover:bg-gold/20 hover:text-gold rounded-full transition-all",
-                        day_selected: "!bg-gold !text-background hover:!bg-gold-light hover:!text-background",
-                        day_today: "bg-accent text-accent-foreground",
-                      }}
-                    />
-                  </PopoverContent>
-                </Popover>
+        {/* Filters & Actions */}
+        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-3 sm:gap-4 p-3 sm:p-4 border border-gold/20 rounded-lg bg-secondary/20 backdrop-blur-sm">
+           <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                 <Label className="whitespace-nowrap text-xs sm:text-sm text-muted-foreground">날짜</Label>
+                 <Popover>
+                   <PopoverTrigger asChild>
+                     <Button
+                       variant={"outline"}
+                       size="sm"
+                       className={cn(
+                         "w-[140px] sm:w-[200px] pl-2 sm:pl-3 text-left font-normal border-gold/20 bg-input hover:bg-gold/5 h-8 sm:h-9 text-xs sm:text-sm",
+                         !selectedDate && "text-muted-foreground"
+                       )}
+                     >
+                       {selectedDate ? (
+                         format(selectedDate, "MMM d, yyyy")
+                       ) : (
+                         <span>날짜 선택</span>
+                       )}
+                       <CalendarIcon className="ml-auto h-3.5 w-3.5 sm:h-4 sm:w-4 opacity-50 text-gold" />
+                     </Button>
+                   </PopoverTrigger>
+                   <PopoverContent className="w-auto p-0" align="start">
+                     <Calendar
+                       mode="single"
+                       selected={selectedDate}
+                       defaultMonth={selectedDate}
+                       onSelect={(date) => date && setSelectedDate(date)}
+                       onMonthChange={(month) => {
+                          setCurrentMonth(month);
+                          fetchDashboardData(month, confirmedRangeFilter);
+                        }}
+                       initialFocus
+                       className="p-3 pointer-events-auto"
+                       classNames={{
+                         head_cell: "text-muted-foreground font-normal text-xs w-10",
+                         cell: "h-12 w-12 text-center text-sm p-0 flex items-center justify-center relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+                         day: "h-10 w-10 p-0 font-normal aria-selected:opacity-100 hover:bg-gold/20 hover:text-gold rounded-full transition-all",
+                         day_selected: "!bg-gold !text-background hover:!bg-gold-light hover:!text-background",
+                         day_today: "bg-accent text-accent-foreground",
+                       }}
+                       components={{
+                          DayButton: (props) => {
+                             const { day, modifiers } = props;
+                             const dateStr = format(day.date, 'yyyy-MM-dd');
+                             const stat = monthStats[dateStr];
+                             return (
+                                <CalendarDayButton {...props} className="relative overflow-visible">
+                                   <span className="z-10">{day.date.getDate()}</span>
+                                   {stat && !modifiers.selected && (
+                                      <div className="absolute bottom-1 w-full flex justify-center gap-0.5">
+                                        {stat.pending > 0 && <span className="h-1.5 w-1.5 rounded-full bg-yellow-500" title={`${stat.pending} Pending`} />}
+                                        {stat.group > 0 && <span className="h-1.5 w-1.5 rounded-full bg-purple-500" title={`${stat.group} Groups`} />}
+                                      </div>
+                                   )}
+                                </CalendarDayButton>
+                             );
+                          }
+                       }}
+                     />
+                   </PopoverContent>
+                 </Popover>
               </div>
-              <div className="space-y-2">
-                <Label>상태</Label>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[200px] bg-input border-gold/20">
-                    <SelectValue placeholder="모든 상태" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">모든 상태</SelectItem>
-                    <SelectItem value="pending">승인 대기</SelectItem>
-                    <SelectItem value="confirmed">확정됨</SelectItem>
-                    <SelectItem value="cancelled">취소됨</SelectItem>
-                    <SelectItem value="completed">완료됨</SelectItem>
-                    <SelectItem value="noshow_charged">노쇼 (청구됨)</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                 <Label className="whitespace-nowrap text-xs sm:text-sm text-muted-foreground">상태</Label>
+                 <Select value={statusFilter} onValueChange={setStatusFilter}>
+                   <SelectTrigger className="w-[100px] sm:w-[150px] h-8 sm:h-9 bg-input border-gold/20 text-xs sm:text-sm">
+                     <SelectValue placeholder="모든 상태" />
+                   </SelectTrigger>
+                   <SelectContent>
+                     <SelectItem value="all">모든 상태</SelectItem>
+                     <SelectItem value="pending">승인 대기</SelectItem>
+                     <SelectItem value="confirmed">확정됨</SelectItem>
+                     <SelectItem value="cancelled">취소됨</SelectItem>
+                     <SelectItem value="completed">완료됨</SelectItem>
+                     <SelectItem value="noshow_charged">노쇼 (청구됨)</SelectItem>
+                   </SelectContent>
+                 </Select>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+           </div>
+           
+           <Button 
+             onClick={() => setShowQuickView(true)} 
+             size="sm"
+             className="bg-gold text-black hover:bg-gold-light h-8 sm:h-9 text-xs sm:text-sm w-full sm:w-auto relative"
+           >
+             <LayoutDashboard className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+             예약 현황
+             {pendingCount > 0 && (
+               <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-md animate-pulse">
+                 {pendingCount > 99 ? '99+' : pendingCount}
+               </span>
+             )}
+           </Button>
+        </div>
 
         {/* Tabs */}
-        <div className="flex space-x-2 border-b border-gold/20">
+        <div className="flex space-x-1 sm:space-x-2 border-b border-gold/20 overflow-x-auto">
           <button
             onClick={() => setActiveTab('bookings')}
-            className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+            className={`px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium transition-colors relative whitespace-nowrap ${
               activeTab === 'bookings'
                 ? 'text-gold'
                 : 'text-muted-foreground hover:text-foreground'
@@ -461,13 +551,14 @@ export default function AdminPage() {
           </button>
           <button
             onClick={() => setActiveTab('availability')}
-            className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+            className={`px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium transition-colors relative whitespace-nowrap ${
               activeTab === 'availability'
                 ? 'text-gold'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            예약 가능 시간 관리
+            <span className="hidden sm:inline">예약 가능 시간 관리</span>
+            <span className="sm:hidden">시간 관리</span>
             {activeTab === 'availability' && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold" />
             )}
@@ -494,84 +585,75 @@ export default function AdminPage() {
         {/* Bookings List */}
         {activeTab === 'bookings' && (
         <Card className="glass-card border-gold/20">
-          <CardHeader>
-            <CardTitle>예약 목록</CardTitle>
-            <CardDescription>
+          <CardHeader className="p-3 sm:p-6">
+            <CardTitle className="text-base sm:text-lg">예약 목록</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">
               {bookings.length}건의 예약이 있습니다
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
             {loading ? (
-              <div className="flex justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-gold" />
+              <div className="flex justify-center py-8 sm:py-12">
+                <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 animate-spin text-gold" />
               </div>
             ) : bookings.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
+              <div className="text-center py-8 sm:py-12 text-muted-foreground text-sm">
                 선택한 필터에 해당하는 예약이 없습니다
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {bookings.map((booking) => (
                   <div
                     key={booking.id}
-                    className="border border-gold/20 rounded-lg p-4 bg-secondary/30"
+                    className="border border-gold/20 rounded-lg p-3 sm:p-4 bg-secondary/30"
                   >
-                    <div className="flex flex-wrap gap-4 items-start justify-between">
+                    <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:gap-4 sm:items-start sm:justify-between">
                       {/* Booking Info */}
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-3">
-                          <h3 className="font-semibold text-lg">
+                      <div className="space-y-1.5 sm:space-y-2 flex-1 min-w-0">
+                        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                          <h3 className="font-semibold text-base sm:text-lg">
                             {booking.first_name} {booking.last_name}
                           </h3>
                           <span
-                            className={`px-2 py-0.5 text-xs rounded-full border ${
+                            className={`px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs rounded-full border ${
                               statusColors[booking.status]
                             }`}
                           >
                             {statusLabels[booking.status]}
                           </span>
                         </div>
-                        <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                        <div className="flex flex-wrap gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
                           <span className="flex items-center gap-1">
-                            <CalendarIcon className="h-4 w-4 text-gold" />
-                            {format(new Date(booking.booking_date + 'T12:00:00'), 'MMM d, yyyy')}
+                            <CalendarIcon className="h-3 w-3 sm:h-4 sm:w-4 text-gold" />
+                            {format(new Date(booking.booking_date + 'T12:00:00'), 'MMM d')}
                           </span>
                           <span className="flex items-center gap-1">
-                            <Clock className="h-4 w-4 text-gold" />
-                            {formatTime(booking.slot_start)} - {formatTime(booking.slot_end)}
+                            <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-gold" />
+                            {formatTime(booking.slot_start)}
                           </span>
                           <span className="flex items-center gap-1">
-                            <Users className="h-4 w-4 text-gold" />
+                            <Users className="h-3 w-3 sm:h-4 sm:w-4 text-gold" />
                             {booking.party_size}명
                           </span>
                         </div>
-                        <div className="text-sm text-muted-foreground">
-                          {booking.email} • {booking.phone}
-                        </div>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1" title="Preferred Language">
-                          <Globe className="h-4 w-4 text-gold" />
-                          <span>{booking.email_language === 'fr' ? 'Français' : 'English'}</span>
+                        <div className="text-[10px] sm:text-sm text-muted-foreground truncate">
+                          {booking.phone}
                         </div>
                         {booking.allergy_info && (
-                          <div className="text-sm text-amber-400 flex items-center gap-1">
-                            <AlertTriangle className="h-4 w-4" />
-                            알레르기: {booking.allergy_info}
-                          </div>
-                        )}
-                        {booking.penalty_amount && (
-                          <div className="text-sm text-green-400">
-                            위약금 청구: ${booking.penalty_amount / 100} CAD
+                          <div className="text-[10px] sm:text-sm text-amber-400 flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4" />
+                            알러지
                           </div>
                         )}
                       </div>
 
                       {/* Actions */}
-                      <div className="flex gap-2 items-center flex-wrap">
+                      <div className="flex gap-1.5 sm:gap-2 items-center flex-wrap justify-end sm:justify-start">
                          <Button
                             variant="outline"
                             size="sm"
                             onClick={() => handleEditClick(booking)}
-                            className="border-gold/30 hover:border-gold"
+                            className="border-gold/30 hover:border-gold h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3"
                             title="수정"
                           >
                             수정
@@ -583,13 +665,13 @@ export default function AdminPage() {
                               size="sm"
                               onClick={() => handleConfirmBooking(booking.id)}
                               disabled={chargingId === booking.id}
-                              className="bg-green-600 hover:bg-green-700 text-white border-0 shadow-sm"
+                              className="bg-green-600 hover:bg-green-700 text-white border-0 shadow-sm h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3"
                               title="예약 확정"
                             >
                               {chargingId === booking.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
                               ) : (
-                                <CheckCircle className="h-4 w-4 mr-1" />
+                                <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-0.5 sm:mr-1" />
                               )}
                               확정
                             </Button>
@@ -598,11 +680,11 @@ export default function AdminPage() {
                               size="sm"
                               onClick={() => handleCancelBooking(booking.id)}
                               disabled={chargingId === booking.id}
-                              className="bg-red-600 hover:bg-red-700 text-white border-0 shadow-sm"
+                              className="bg-red-600 hover:bg-red-700 text-white border-0 shadow-sm h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3"
                               title="예약 취소"
                             >
                                {chargingId === booking.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
                               ) : (
                                 "취소"
                               )}
@@ -617,11 +699,11 @@ export default function AdminPage() {
                               size="sm"
                               onClick={() => handleCancelBooking(booking.id)}
                               disabled={chargingId === booking.id}
-                              className="bg-red-600 hover:bg-red-700 text-white border-0 shadow-sm"
+                              className="bg-red-600 hover:bg-red-700 text-white border-0 shadow-sm h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3"
                               title="취소 (청구 없음)"
                             >
                                {chargingId === booking.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
                               ) : (
                                 "취소"
                               )}
@@ -631,15 +713,15 @@ export default function AdminPage() {
                               size="sm"
                               onClick={() => handleOpenChargeModal(booking)}
                               disabled={chargingId === booking.id}
-                              className="!bg-amber-500 !hover:bg-amber-600 !text-black border-0 font-medium shadow-sm"
+                              className="!bg-amber-500 !hover:bg-amber-600 !text-black border-0 font-medium shadow-sm h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3"
                               title="노쇼 위약금 청구"
                             >
                               {chargingId === booking.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                                <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin mr-0.5 sm:mr-1" />
                               ) : (
-                                <DollarSign className="h-4 w-4 mr-1" />
+                                <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 mr-0.5 sm:mr-1" />
                               )}
-                              노쇼 (청구)
+                              노쇼
                             </Button>
                           </>
                         )}
@@ -724,6 +806,141 @@ export default function AdminPage() {
           </Card>
         )}
 
+
+
+        {/* Quick View Modal */}
+        {showQuickView && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4">
+            <Card className="w-full max-w-5xl h-[90vh] sm:h-[80vh] flex flex-col bg-background border-gold/20 overflow-hidden shadow-2xl">
+              <div className="flex justify-between items-center p-3 sm:p-6 border-b border-gold/10">
+                <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
+                  <LayoutDashboard className="h-4 w-4 sm:h-5 sm:w-5 text-gold" />
+                  <span className="hidden sm:inline">예약 현황</span>
+                  <span className="sm:hidden">현황</span>
+                </CardTitle>
+                <Button variant="ghost" size="icon" onClick={() => setShowQuickView(false)} className="hover:bg-secondary h-8 w-8 sm:h-10 sm:w-10">
+                  <X className="h-4 w-4 sm:h-5 sm:w-5" />
+                </Button>
+              </div>
+              
+              <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+                {/* Pending Section */}
+                <div className="border-b md:border-b-0 md:border-r border-gold/10 flex flex-col h-1/2 md:h-full md:w-1/2 bg-yellow-500/5">
+                  <div className="p-2 sm:p-4 border-b border-yellow-500/10 bg-yellow-500/10 flex justify-between items-center shrink-0">
+                    <h3 className="font-semibold text-sm sm:text-lg text-yellow-500 flex items-center gap-1 sm:gap-2">
+                      <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5" />
+                      승인 대기 ({quickViewData.pending.length})
+                    </h3>
+                  </div>
+                  <div className="p-2 sm:p-4 overflow-y-auto space-y-2 sm:space-y-3 flex-1">
+                    {quickViewData.pending.length === 0 ? (
+                      <div className="text-center py-6 sm:py-10 text-muted-foreground text-sm">대기 중인 예약이 없습니다.</div>
+                    ) : (
+                      quickViewData.pending.map(booking => (
+                        <Card key={booking.id} className="border-yellow-500/20 bg-background/50">
+                          <CardContent className="p-2 sm:p-3">
+                            <div className="flex justify-between items-start mb-1 sm:mb-2">
+                              <span className="font-bold text-sm sm:text-base">{booking.first_name} {booking.last_name}</span>
+                              <span className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-500 border border-yellow-500/30">
+                                {format(parseISO(booking.booking_date), 'MM/dd')}
+                              </span>
+                            </div>
+                            <div className="text-xs sm:text-sm text-muted-foreground space-y-0.5 sm:space-y-1">
+                               <div className="flex justify-between">
+                                  <span>{formatTime(booking.slot_start)}</span>
+                                  <span className="flex items-center gap-1"><Users className="h-3 w-3"/> {booking.party_size}명</span>
+                               </div>
+                               <div className="text-[10px] sm:text-xs">{booking.phone}</div>
+                            </div>
+                            <div className="mt-2 sm:mt-3 flex justify-end gap-1 sm:gap-2">
+                               <Button 
+                                  size="sm" 
+                                  className="h-6 sm:h-7 text-[10px] sm:text-xs bg-green-600 hover:bg-green-700 text-white px-2 sm:px-3"
+                                  onClick={() => {
+                                      handleConfirmBooking(booking.id);
+                                  }}
+                               >
+                                  확정
+                               </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Confirmed Section */}
+                <div className="flex flex-col h-1/2 md:h-full md:w-1/2 bg-green-500/5">
+                  <div className="p-2 sm:p-4 border-b border-green-500/10 bg-green-500/10 shrink-0">
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="font-semibold text-sm sm:text-lg text-green-500 flex items-center gap-1 sm:gap-2">
+                        <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5" />
+                        확정 예약 ({quickViewData.confirmed.length})
+                      </h3>
+                    </div>
+                    <div className="flex gap-1 sm:gap-2 flex-wrap">
+                      {(['2w', '1m', '2m', '3m'] as const).map((range) => (
+                        <Button
+                          key={range}
+                          size="sm"
+                          variant={confirmedRangeFilter === range ? 'default' : 'outline'}
+                          className={`h-6 sm:h-7 text-[10px] sm:text-xs px-2 sm:px-3 ${confirmedRangeFilter === range ? 'bg-green-600 hover:bg-green-700 text-white' : 'border-green-500/30 text-green-500 hover:bg-green-500/10'}`}
+                          onClick={() => setConfirmedRangeFilter(range)}
+                        >
+                          {range === '2w' ? '2주' : range === '1m' ? '1개월' : range === '2m' ? '2개월' : '3개월'}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="p-2 sm:p-4 overflow-y-auto space-y-2 sm:space-y-3 flex-1">
+                     {quickViewData.confirmed.length === 0 ? (
+                      <div className="text-center py-6 sm:py-10 text-muted-foreground text-sm">확정된 예약이 없습니다.</div>
+                    ) : (
+                      quickViewData.confirmed.map(booking => (
+                        <Card key={booking.id} className="border-green-500/20 bg-background/50">
+                          <CardContent className="p-2 sm:p-3">
+                            <div className="flex justify-between items-start mb-1 sm:mb-2">
+                              <span className="font-bold text-sm sm:text-base">{booking.first_name} {booking.last_name}</span>
+                              <span className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full bg-green-500/20 text-green-500 border border-green-500/30">
+                                {format(parseISO(booking.booking_date), 'MM/dd')} {formatTime(booking.slot_start)}
+                              </span>
+                            </div>
+                            <div className="text-xs sm:text-sm text-muted-foreground space-y-0.5 sm:space-y-1">
+                              <div className="flex gap-2 flex-wrap">
+                                 <span className="flex items-center gap-1"><Users className="h-3 w-3"/> {booking.party_size}명</span>
+                                  {booking.allergy_info && <span className="text-amber-500 flex items-center gap-0.5 text-[10px] sm:text-xs"><AlertTriangle className="h-3 w-3"/> 알러지</span>}
+                              </div>
+                               <div className="text-[10px] sm:text-xs">{booking.phone}</div>
+                            </div>
+                            <div className="mt-2 sm:mt-3 flex justify-end gap-1 sm:gap-2">
+                               <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  className="h-6 sm:h-7 text-[10px] sm:text-xs border-amber-500/30 text-amber-500 hover:bg-amber-500/10 px-2 sm:px-3"
+                                  onClick={() => handleOpenChargeModal(booking)}
+                               >
+                                  노쇼
+                               </Button>
+                               <Button 
+                                  size="sm" 
+                                  variant="ghost"
+                                  className="h-6 sm:h-7 text-[10px] sm:text-xs text-red-500 hover:text-red-600 hover:bg-red-500/10 px-2 sm:px-3"
+                                  onClick={() => handleCancelBooking(booking.id)}
+                               >
+                                  취소
+                               </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
 
         {/* Edit Modal (Overlay) */}
         {editingBooking && (

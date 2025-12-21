@@ -128,6 +128,9 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date');
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
+    // usage: ?status=pending,confirmed
     const status = searchParams.get('status');
 
     const supabase = createServerClient();
@@ -140,10 +143,17 @@ export async function GET(request: NextRequest) {
 
     if (date) {
       query = query.eq('booking_date', date);
+    } else if (startDate && endDate) {
+      query = query.gte('booking_date', startDate).lte('booking_date', endDate);
     }
 
     if (status) {
-      query = query.eq('status', status);
+      const statuses = status.split(',');
+      if (statuses.length > 1) {
+        query = query.in('status', statuses);
+      } else {
+        query = query.eq('status', status);
+      }
     }
 
     const { data: bookings, error } = await query.limit(100);
