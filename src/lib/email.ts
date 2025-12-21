@@ -407,6 +407,7 @@ function generateEnglishCancellationEmail(booking: Booking): string {
   <div class="content">
     <div class="intro">
       <p>Dear ${booking.first_name},</p>
+      <p>We are writing to inform you that your reservation has been cancelled.</p>
     </div>
     
     <div class="details-box">
@@ -418,7 +419,7 @@ function generateEnglishCancellationEmail(booking: Booking): string {
 
     <div class="notice-box">
       <p><strong>✓ No Charges Applied</strong></p>
-      <p>We would like to inform you that your reservation has been cancelled <strong>without any fee</strong>.</p>
+      <p>Please be assured that this cancellation has been processed <strong>without any fee</strong>.</p>
     </div>
 
     <div class="contact">
@@ -471,6 +472,7 @@ function generateFrenchCancellationEmail(booking: Booking): string {
   <div class="content">
     <div class="intro">
       <p>Cher/Chère ${booking.first_name},</p>
+      <p>Nous vous informons que votre réservation a été annulée.</p>
     </div>
     
     <div class="details-box">
@@ -482,7 +484,7 @@ function generateFrenchCancellationEmail(booking: Booking): string {
 
     <div class="notice-box">
       <p><strong>✓ Aucuns frais appliqués</strong></p>
-      <p>Nous vous informons que votre réservation a été annulée <strong>sans aucuns frais</strong>.</p>
+      <p>Soyez assuré que cette annulation a été effectuée <strong>sans aucuns frais</strong>.</p>
     </div>
 
     <div class="contact">
@@ -491,8 +493,8 @@ function generateFrenchCancellationEmail(booking: Booking): string {
       <p>📞 514-834-8710 (Français)<br/>📞 514-224-8710 (English)</p>
     </div>
 
-    <p style="margin-top: 20px;">Nous espérons avoir l'occasion de vous accueillir et de vous offrir une excellente expérience gastronomique une prochaine fois.</p>
-    <p>Passez une excellente journée !</p>
+    <p style="margin-top: 20px;">Nous espérons avoir le plaisir de vous accueillir prochainement pour vous faire vivre une expérience culinaire de qualité.</p>
+    <p>Nous vous souhaitons une excellente journée.</p>
     <p><em>– ${RESTAURANT_NAME}</em></p>
   </div>
   

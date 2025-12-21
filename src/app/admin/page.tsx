@@ -636,13 +636,17 @@ export default function AdminPage() {
                             {booking.party_size}명
                           </span>
                         </div>
-                        <div className="text-[10px] sm:text-sm text-muted-foreground truncate">
-                          {booking.phone}
+                        <div className="text-[10px] sm:text-sm text-muted-foreground break-words">
+                          {booking.email} • {booking.phone}
+                        </div>
+                        <div className="flex items-center gap-1 text-[10px] sm:text-sm text-muted-foreground" title="Preferred Language">
+                          <Globe className="h-3 w-3 sm:h-4 sm:w-4 text-gold" />
+                          <span>{booking.email_language === 'fr' ? 'Français' : 'English'}</span>
                         </div>
                         {booking.allergy_info && (
                           <div className="text-[10px] sm:text-sm text-amber-400 flex items-center gap-1">
                             <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4" />
-                            알러지
+                            알러지: {booking.allergy_info}
                           </div>
                         )}
                       </div>
@@ -839,18 +843,37 @@ export default function AdminPage() {
                       quickViewData.pending.map(booking => (
                         <Card key={booking.id} className="border-yellow-500/20 bg-background/50">
                           <CardContent className="p-2 sm:p-3">
-                            <div className="flex justify-between items-start mb-1 sm:mb-2">
-                              <span className="font-bold text-sm sm:text-base">{booking.first_name} {booking.last_name}</span>
-                              <span className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-500 border border-yellow-500/30">
-                                {format(parseISO(booking.booking_date), 'MM/dd')}
-                              </span>
-                            </div>
-                            <div className="text-xs sm:text-sm text-muted-foreground space-y-0.5 sm:space-y-1">
-                               <div className="flex justify-between">
-                                  <span>{formatTime(booking.slot_start)}</span>
-                                  <span className="flex items-center gap-1"><Users className="h-3 w-3"/> {booking.party_size}명</span>
-                               </div>
-                               <div className="text-[10px] sm:text-xs">{booking.phone}</div>
+                            <div className="space-y-1.5 sm:space-y-2 mb-2 sm:mb-3">
+                              <div className="flex flex-col gap-1">
+                                <span className="font-bold text-sm sm:text-base">{booking.first_name} {booking.last_name}</span>
+                              </div>
+                              <div className="flex flex-wrap gap-2 sm:gap-3 text-xs sm:text-sm text-muted-foreground">
+                                <span className="flex items-center gap-1">
+                                  <CalendarIcon className="h-3 w-3 text-gold" />
+                                  {format(parseISO(booking.booking_date), 'MMM d')}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Clock className="h-3 w-3 text-gold" />
+                                  {formatTime(booking.slot_start)}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Users className="h-3 w-3 text-gold" />
+                                  {booking.party_size}명
+                                </span>
+                              </div>
+                              <div className="text-[10px] sm:text-sm text-muted-foreground break-words">
+                                {booking.email} • {booking.phone}
+                              </div>
+                              <div className="flex items-center gap-1 text-[10px] sm:text-sm text-muted-foreground">
+                                <Globe className="h-3 w-3 text-gold" />
+                                <span>{booking.email_language === 'fr' ? 'Français' : 'English'}</span>
+                              </div>
+                              {booking.allergy_info && (
+                                <div className="text-[10px] sm:text-sm text-amber-400 flex items-center gap-1">
+                                  <AlertTriangle className="h-3 w-3" />
+                                  알러지: {booking.allergy_info}
+                                </div>
+                              )}
                             </div>
                             <div className="mt-2 sm:mt-3 flex justify-end gap-1 sm:gap-2">
                                <Button 
@@ -900,18 +923,37 @@ export default function AdminPage() {
                       quickViewData.confirmed.map(booking => (
                         <Card key={booking.id} className="border-green-500/20 bg-background/50">
                           <CardContent className="p-2 sm:p-3">
-                            <div className="flex justify-between items-start mb-1 sm:mb-2">
-                              <span className="font-bold text-sm sm:text-base">{booking.first_name} {booking.last_name}</span>
-                              <span className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full bg-green-500/20 text-green-500 border border-green-500/30">
-                                {format(parseISO(booking.booking_date), 'MM/dd')} {formatTime(booking.slot_start)}
-                              </span>
-                            </div>
-                            <div className="text-xs sm:text-sm text-muted-foreground space-y-0.5 sm:space-y-1">
-                              <div className="flex gap-2 flex-wrap">
-                                 <span className="flex items-center gap-1"><Users className="h-3 w-3"/> {booking.party_size}명</span>
-                                  {booking.allergy_info && <span className="text-amber-500 flex items-center gap-0.5 text-[10px] sm:text-xs"><AlertTriangle className="h-3 w-3"/> 알러지</span>}
+                            <div className="space-y-1.5 sm:space-y-2 mb-2 sm:mb-3">
+                              <div className="flex flex-col gap-1">
+                                <span className="font-bold text-sm sm:text-base">{booking.first_name} {booking.last_name}</span>
                               </div>
-                               <div className="text-[10px] sm:text-xs">{booking.phone}</div>
+                              <div className="flex flex-wrap gap-2 sm:gap-3 text-xs sm:text-sm text-muted-foreground">
+                                <span className="flex items-center gap-1">
+                                  <CalendarIcon className="h-3 w-3 text-gold" />
+                                  {format(parseISO(booking.booking_date), 'MMM d')}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Clock className="h-3 w-3 text-gold" />
+                                  {formatTime(booking.slot_start)}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Users className="h-3 w-3 text-gold" />
+                                  {booking.party_size}명
+                                </span>
+                              </div>
+                              <div className="text-[10px] sm:text-sm text-muted-foreground break-words">
+                                {booking.email} • {booking.phone}
+                              </div>
+                              <div className="flex items-center gap-1 text-[10px] sm:text-sm text-muted-foreground">
+                                <Globe className="h-3 w-3 text-gold" />
+                                <span>{booking.email_language === 'fr' ? 'Français' : 'English'}</span>
+                              </div>
+                              {booking.allergy_info && (
+                                <div className="text-[10px] sm:text-sm text-amber-400 flex items-center gap-1">
+                                  <AlertTriangle className="h-3 w-3" />
+                                  알러지: {booking.allergy_info}
+                                </div>
+                              )}
                             </div>
                             <div className="mt-2 sm:mt-3 flex justify-end gap-1 sm:gap-2">
                                <Button 
