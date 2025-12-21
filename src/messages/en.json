@@ -35,7 +35,8 @@
     "subtitle": "Step 2 of 6",
     "date": {
       "label": "Select Date",
-      "closed": "Closed"
+      "closed": "Closed",
+      "urgentBooking": "For reservations within the next 7 days, please contact us directly:"
     },
     "time": {
       "label": "Select Time Slot",

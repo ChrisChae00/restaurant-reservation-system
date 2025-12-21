@@ -9,8 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Calendar } from '@/components/ui/calendar';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { isRestaurantOpen, formatTimeRange } from '@/lib/booking-rules';
-import { format, addDays, isBefore, startOfDay } from 'date-fns';
+import { isRestaurantOpen, formatTimeRange, RESTAURANT_CONTACT } from '@/lib/booking-rules';
+import { format, addDays, isBefore, startOfDay, endOfMonth, addMonths, startOfMonth } from 'date-fns';
 import type { SlotAvailability, EmailLanguage } from '@/types/booking';
 
 interface DetailsStepProps {
@@ -57,9 +57,9 @@ export function DetailsStep({
 
   const today = startOfDay(new Date());
   // Reservations can only be made starting from 1 week from today
-  // Based on day of week, not exact time (e.g., if today is Tuesday, next Tuesday is the first available date)
   const minDate = addDays(today, 7);
-  const maxDate = addDays(today, 60);
+  // Max date: end of current month + 2 months (e.g., Dec -> Feb end)
+  const maxDate = endOfMonth(addMonths(startOfMonth(today), 2));
 
   // Fetch availability when date changes
   useEffect(() => {
@@ -157,6 +157,28 @@ export function DetailsStep({
         {/* Date Selection */}
         <div className="space-y-2">
           <Label className="text-base font-medium">{t('date.label')}</Label>
+          
+          {/* Urgent Booking Notice */}
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-sm">
+            <p className="text-amber-400 mb-2 flex items-center gap-2">
+              {t('date.urgentBooking')}
+            </p>
+            <div className="flex flex-col gap-1 text-muted-foreground text-xs">
+              <a 
+                href={`mailto:${RESTAURANT_CONTACT.email}`} 
+                className="hover:text-gold transition-colors"
+              >
+                {RESTAURANT_CONTACT.email}
+              </a>
+              <a 
+                href={`tel:${RESTAURANT_CONTACT.phone_en.replace(/[^0-9]/g, '')}`} 
+                className="hover:text-gold transition-colors"
+              >
+                EN: {RESTAURANT_CONTACT.phone_en} / FR: {RESTAURANT_CONTACT.phone_fr}
+              </a>
+            </div>
+          </div>
+          
           <div className="flex justify-center">
             <Calendar
               mode="single"

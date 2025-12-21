@@ -49,10 +49,10 @@ export interface DayConfig {
 const TUE_WED_THU_SLOTS: TimeSlot[] = [
   {
     id: 'tue-thu-early',
-    arrivalStart: '16:30',
+    arrivalStart: '17:00',
     arrivalEnd: '17:00',
     slotEnd: '19:30',
-    label: '16:30-17:00 → 19:30',
+    label: '17:00 → 19:30',
     type: 'early',
   },
   {
@@ -69,10 +69,10 @@ const TUE_WED_THU_SLOTS: TimeSlot[] = [
 const FRI_SAT_SLOTS: TimeSlot[] = [
   {
     id: 'fri-sat-early',
-    arrivalStart: '16:30',
+    arrivalStart: '17:00',
     arrivalEnd: '17:00',
     slotEnd: '19:15',
-    label: '16:30-17:00 → 19:15',
+    label: '17:00 → 19:15',
     type: 'early',
   },
   {

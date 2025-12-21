@@ -35,7 +35,8 @@
     "subtitle": "Étape 2 sur 6",
     "date": {
       "label": "Sélectionner la Date",
-      "closed": "Fermé"
+      "closed": "Fermé",
+      "urgentBooking": "Pour les réservations dans les 7 prochains jours, veuillez nous contacter directement:"
     },
     "time": {
       "label": "Sélectionner le Créneau",
