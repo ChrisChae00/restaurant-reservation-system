@@ -281,6 +281,7 @@ export function BookingForm() {
           partySize={formData.partySize}
           date={formData.date}
           slotStart={formData.slotStart}
+          slotEnd={formData.slotEnd}
         />
       )}
 

@@ -33,6 +33,7 @@ interface CardGuaranteeStepProps {
   partySize: number;
   date: Date;
   slotStart: string;
+  slotEnd: string;
 }
 
 // Stripe Card Element styling
@@ -66,6 +67,7 @@ function CardGuaranteeInner({
   partySize,
   date,
   slotStart,
+  slotEnd,
 }: CardGuaranteeStepProps) {
   const t = useTranslations('cardGuarantee');
   const stripe = useStripe();
@@ -178,7 +180,7 @@ function CardGuaranteeInner({
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Time:</span>
-            <span>{formatTime(slotStart)}</span>
+            <span>{formatTime(slotStart)} - {formatTime(slotEnd)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Guests:</span>

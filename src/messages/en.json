@@ -74,10 +74,10 @@
     "rules": {
       "title": "Group Menu Rules",
       "mandatory": "Group menu is mandatory for all reservations of 7+ people.",
-      "noAlaCarte": "À la carte (individual ordering) is not available for groups.",
+      "noAlaCarte": "À la carte (individual item ordering) is not available for groups.",
       "menuTypes": "You may mix different menus (Half-Moon, Full-Moon, Vegetarian).",
       "minimumOrder": "Minimum 2 people required per menu type.",
-      "children": "Children under 10 may order 1 dish from the menu."
+      "children": "Children under 10 may order 1 dish from the regular menu (à la carte)."
     },
     "viewMenu": "View Full Menu (PDF)",
     "agreement": "I understand and accept the group menu policy",
@@ -124,7 +124,7 @@
       },
       "alcohol": {
         "title": "Alcohol Policy",
-        "description": "You can bring your own drink (wine and beer only). Beverages over 20% alcohol are not permitted."
+        "description": "Outside alcohol permitted (Max 20% ABV). Drinks exceeding 20% alcohol are not allowed."
       }
     },
     "agreement": "I agree to all house rules listed above",

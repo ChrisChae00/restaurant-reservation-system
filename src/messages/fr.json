@@ -74,10 +74,10 @@
     "rules": {
       "title": "Règles du Menu de Groupe",
       "mandatory": "Le menu de groupe est obligatoire pour toutes les réservations de 7+ personnes.",
-      "noAlaCarte": "Les commandes à la carte ne sont pas disponibles pour les groupes.",
+      "noAlaCarte": "Le menu à la carte (commande à l'unité) n'est pas disponible pour les groupes.",
       "menuTypes": "Vous pouvez mélanger différents menus (Half-Moon, Full-Moon, Végétarien).",
       "minimumOrder": "Minimum 2 personnes requises par type de menu.",
-      "children": "Les enfants de moins de 10 ans peuvent commander 1 plat du menu."
+      "children": "Les enfants de moins de 10 ans peuvent commander 1 plat du menu régulier (à la carte)."
     },
     "viewMenu": "Voir le Menu Complet (PDF)",
     "agreement": "Je comprends et j'accepte la politique du menu de groupe",
@@ -124,7 +124,7 @@
       },
       "alcohol": {
         "title": "Politique d'Alcool",
-        "description": "Vous pouvez apporter vos propres boissons (vin et bière uniquement). Les boissons de plus de 20% d'alcool ne sont pas autorisées."
+        "description": "Alcool de l'extérieur autorisé (Max 20% alc./vol). Les boissons dépassant 20% d'alcool ne sont pas autorisées."
       }
     },
     "agreement": "J'accepte toutes les règles de la maison énumérées ci-dessus",
