@@ -105,6 +105,10 @@ export function AllergyStep({
               <span className="text-amber-400 font-bold">•</span>
               <span><strong className="text-amber-400">{t('warnings.fishGlutenLabel')}: </strong>{t('warnings.fishGluten')}</span>
             </li>
+            <li className="flex items-start gap-2">
+              <span className="text-amber-400 font-bold">•</span>
+              <span>{t('warnings.general')}</span>
+            </li>
           </ul>
         </div>
 

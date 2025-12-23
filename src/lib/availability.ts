@@ -120,6 +120,7 @@ export async function getGuestsInTimeRange(
 /**
  * Check if a specific slot is available
  * One team per slot - if any booking exists, slot is unavailable
+ * UNLESS admin has allowed additional bookings via allowed_slots
  */
 export async function checkSlotAvailability(
   date: string,
@@ -147,6 +148,26 @@ export async function checkSlotAvailability(
   // 2. Check if any booking exists for this slot (one team per slot)
   const currentGuests = await getGuestsInTimeRange(date, slotStart, slotEnd);
   const hasExistingBooking = currentGuests > 0;
+
+  // 3. If booking exists, check if admin allowed additional bookings
+  if (hasExistingBooking && slotId) {
+    const supabase = createServerClient();
+    const { data } = await supabase
+      .from('allowed_slots')
+      .select('id')
+      .eq('date', date)
+      .eq('slot_id', slotId)
+      .single();
+    
+    // If admin allowed additional bookings, slot is available
+    if (data) {
+      return {
+        available: true,
+        currentGuests,
+        remainingCapacity: partySize,
+      };
+    }
+  }
 
   return {
     available: !hasExistingBooking,
@@ -199,9 +220,9 @@ export async function getAvailabilityForDate(
       };
     }
 
-    // 3. Otherwise check capacity
+    // 3. Otherwise check capacity (pass slotId for allowed_slots check)
     const { available, currentGuests, remainingCapacity } =
-      await checkSlotAvailability(dateStr, slot.arrivalStart, slot.slotEnd, partySize);
+      await checkSlotAvailability(dateStr, slot.arrivalStart, slot.slotEnd, partySize, slot.id);
 
     return {
       slotId: slot.id,

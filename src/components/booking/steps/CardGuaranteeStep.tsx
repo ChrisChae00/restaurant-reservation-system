@@ -25,6 +25,7 @@ interface CardGuaranteeStepProps {
   onAcceptChange: (accepted: boolean) => void;
   onSubmit: (stripeCustomerId: string, stripePaymentMethodId: string) => void;
   onBack: () => void;
+  onGoToDetails: () => void;
   isSubmitting: boolean;
   // Booking data for display
   firstName: string;
@@ -60,6 +61,7 @@ function CardGuaranteeInner({
   onAcceptChange,
   onSubmit,
   onBack,
+  onGoToDetails,
   isSubmitting,
   firstName,
   lastName,
@@ -170,9 +172,23 @@ function CardGuaranteeInner({
 
         {/* Booking Summary */}
         <div className="rounded-lg bg-secondary/50 p-4 space-y-2 text-sm">
+          <div className="flex justify-between items-center pb-2 mb-2 border-b border-white/5">
+            <h3 className="font-semibold text-gold">Summary</h3>
+            <button 
+              type="button"
+              onClick={onGoToDetails}
+              className="text-xs text-gold hover:text-gold-light underline"
+            >
+              Edit
+            </button>
+          </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Name:</span>
             <span>{firstName} {lastName}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">Email:</span>
+            <span className="text-sm break-all text-right max-w-[200px]">{email}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Date:</span>

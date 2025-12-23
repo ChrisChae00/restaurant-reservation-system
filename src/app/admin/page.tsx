@@ -3,7 +3,7 @@
 // Admin Dashboard - Booking Management
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { format, startOfMonth, endOfMonth, isSameDay, parseISO, addWeeks, addMonths } from 'date-fns';
+import { format, startOfMonth, endOfMonth, isSameDay, parseISO, addWeeks, addMonths, addDays, startOfDay, isBefore } from 'date-fns';
 import { 
   Users, 
   Calendar as CalendarIcon, 
@@ -85,6 +85,16 @@ export default function AdminPage() {
   const [blockedSlots, setBlockedSlots] = useState<Set<string>>(new Set());
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isDateAllowed, setIsDateAllowed] = useState(false);
+  const [slotBookings, setSlotBookings] = useState<Record<string, number>>({}); // slotId -> booking count
+  const [allowedSlots, setAllowedSlots] = useState<Set<string>>(new Set()); // Slots that allow additional bookings
+
+  // Helper: Check if selected date is within 7 days
+  const isWithin7Days = (): boolean => {
+    const today = startOfDay(new Date());
+    const minDate = addDays(today, 7);
+    return isBefore(selectedDate, minDate);
+  };
 
   // Charge Modal State
   const [chargeModalBooking, setChargeModalBooking] = useState<Booking | null>(null);
@@ -129,11 +139,40 @@ export default function AdminPage() {
   const fetchBlockedSlots = async () => {
     setAvailabilityLoading(true);
     try {
+      // Fetch blocked slots
       const response = await fetch(`/api/admin/blocked-slots?date=${dateFilter}`);
       const data = await response.json();
       if (data.blockedSlots) {
         setBlockedSlots(new Set(data.blockedSlots.map((s: any) => s.slot_id)));
       }
+      
+      // Also fetch if this date is allowed (for 7-day override)
+      const allowedResponse = await fetch(`/api/admin/allowed-dates?date=${dateFilter}`);
+      const allowedData = await allowedResponse.json();
+      setIsDateAllowed(allowedData.allowed || false);
+      
+      // Fetch allowed slots (for additional bookings override)
+      const allowedSlotsResponse = await fetch(`/api/admin/allowed-slots?date=${dateFilter}`);
+      const allowedSlotsData = await allowedSlotsResponse.json();
+      setAllowedSlots(new Set(allowedSlotsData.allowedSlots || []));
+      
+      // Fetch bookings for this date to show booking status
+      const bookingsResponse = await fetch(`/api/bookings?date=${dateFilter}`);
+      const bookingsData = await bookingsResponse.json();
+      const bookingCounts: Record<string, number> = {};
+      
+      // Count bookings per slot (based on slot_start time)
+      if (bookingsData.bookings) {
+        const slots = getSlotsForDate(new Date(dateFilter + 'T12:00:00'));
+        for (const slot of slots) {
+          const slotStart = slot.arrivalStart + ':00'; // Normalize to HH:MM:SS
+          const count = bookingsData.bookings.filter(
+            (b: Booking) => b.slot_start === slotStart && ['pending', 'confirmed'].includes(b.status)
+          ).length;
+          bookingCounts[slot.id] = count;
+        }
+      }
+      setSlotBookings(bookingCounts);
     } catch (error) {
       console.error('Failed to fetch blocked slots:', error);
     } finally {
@@ -230,6 +269,74 @@ export default function AdminPage() {
       console.error('Block toggle error:', error);
       setChargeError('Failed to update slot status');
       setBlockedSlots(originalBlocked); // Revert
+    }
+  };
+
+  // Toggle whether a date within 7 days is allowed for booking
+  const handleToggleAllowDate = async () => {
+    setChargeError(null);
+    setChargeSuccess(null);
+    const originalAllowed = isDateAllowed;
+    
+    // Optimistic update
+    setIsDateAllowed(!isDateAllowed);
+    
+    try {
+      const method = isDateAllowed ? 'DELETE' : 'POST';
+      const url = isDateAllowed 
+        ? `/api/admin/allowed-dates?date=${dateFilter}`
+        : '/api/admin/allowed-dates';
+      
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: isDateAllowed ? undefined : JSON.stringify({ date: dateFilter }),
+      });
+      
+      if (!response.ok) throw new Error('Failed to update allowed date');
+      
+      setChargeSuccess(isDateAllowed ? '예약 차단됨 (7일 규칙 적용)' : '예약 허용됨');
+    } catch (error) {
+      console.error('Allow date toggle error:', error);
+      setChargeError('Failed to update allowed date status');
+      setIsDateAllowed(originalAllowed); // Revert
+    }
+  };
+
+  // Toggle whether a slot with existing bookings allows additional bookings
+  const handleToggleAllowSlot = async (slotId: string, isCurrentlyAllowed: boolean) => {
+    setChargeError(null);
+    setChargeSuccess(null);
+    const originalAllowed = new Set(allowedSlots);
+    
+    // Optimistic update
+    const newAllowed = new Set(allowedSlots);
+    if (isCurrentlyAllowed) {
+      newAllowed.delete(slotId);
+    } else {
+      newAllowed.add(slotId);
+    }
+    setAllowedSlots(newAllowed);
+    
+    try {
+      const method = isCurrentlyAllowed ? 'DELETE' : 'POST';
+      const url = isCurrentlyAllowed 
+        ? `/api/admin/allowed-slots?date=${dateFilter}&slotId=${slotId}`
+        : '/api/admin/allowed-slots';
+      
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: isCurrentlyAllowed ? undefined : JSON.stringify({ date: dateFilter, slotId }),
+      });
+      
+      if (!response.ok) throw new Error('Failed to update slot status');
+      
+      setChargeSuccess(isCurrentlyAllowed ? '추가 예약 차단됨' : '추가 예약 허용됨');
+    } catch (error) {
+      console.error('Allow slot toggle error:', error);
+      setChargeError('Failed to update slot status');
+      setAllowedSlots(originalAllowed); // Revert
     }
   };
 
@@ -414,7 +521,7 @@ export default function AdminPage() {
             <p className="text-sm sm:text-base text-muted-foreground">단체 예약 관리</p>
           </div>
           <div className="flex gap-2">
-            <Button onClick={fetchBookings} variant="outline" size="sm" className="border-gold/30 h-8 sm:h-9 text-xs sm:text-sm">
+            <Button onClick={() => window.location.reload()} variant="outline" size="sm" className="border-gold/30 h-8 sm:h-9 text-xs sm:text-sm">
               <RefreshCw className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
               <span className="hidden sm:inline">새로고침</span>
               <span className="sm:hidden">새로</span>
@@ -753,21 +860,90 @@ export default function AdminPage() {
                   </div>
                ) : (
                   <div className="space-y-4">
+                     {/* 7-Day Rule Notice */}
+                     {isWithin7Days() && (
+                        <div className={`p-4 rounded-lg border flex items-center justify-between ${
+                           isDateAllowed 
+                             ? 'bg-green-500/10 border-green-500/30' 
+                             : 'bg-amber-500/10 border-amber-500/30'
+                        }`}>
+                           <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                 <AlertTriangle className={`h-5 w-5 ${isDateAllowed ? 'text-green-400' : 'text-amber-400'}`} />
+                                 <span className={`font-semibold ${isDateAllowed ? 'text-green-400' : 'text-amber-400'}`}>
+                                    7일 이내 날짜
+                                 </span>
+                                 {isDateAllowed ? (
+                                    <span className="px-2 py-0.5 text-xs rounded-full bg-green-500/20 text-green-400 border border-green-500/30">
+                                       예약 허용됨
+                                    </span>
+                                 ) : (
+                                    <span className="px-2 py-0.5 text-xs rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                                       기본 차단
+                                    </span>
+                                 )}
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                 {isDateAllowed 
+                                    ? '이 날짜는 특별히 예약이 허용되었습니다.' 
+                                    : '손님은 7일 이내 날짜에 예약할 수 없습니다.'}
+                              </p>
+                           </div>
+                           <Button
+                              variant={isDateAllowed ? "destructive" : "outline"}
+                              className={isDateAllowed 
+                                 ? "bg-red-600 hover:bg-red-700 text-white"
+                                 : "border-green-500/50 hover:bg-green-500/10 hover:text-green-400"}
+                              onClick={handleToggleAllowDate}
+                           >
+                              {isDateAllowed ? (
+                                 <>
+                                    <XCircle className="mr-2 h-4 w-4" />
+                                    예약 차단
+                                 </>
+                              ) : (
+                                 <>
+                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                    예약 허용
+                                 </>
+                              )}
+                           </Button>
+                        </div>
+                     )}
+                     
                      {getSlotsForDate(new Date(dateFilter + 'T12:00:00')).map((slot) => {
                         const isBlocked = blockedSlots.has(slot.id);
                         const times = formatTimeRange(slot);
+                        const bookingCount = slotBookings[slot.id] || 0;
+                        const isAutoBlocked = bookingCount > 0; // Auto-blocked due to existing booking
+                        const isSlotAllowed = allowedSlots.has(slot.id); // Admin allowed additional bookings
+                        const effectivelyBlocked = isBlocked || (isAutoBlocked && !isSlotAllowed);
                         
                         return (
                            <div key={slot.id} className="flex items-center justify-between p-4 border border-gold/20 rounded-lg bg-secondary/30">
                               <div className="space-y-1">
-                                 <div className="flex items-center gap-2">
+                                 <div className="flex items-center gap-2 flex-wrap">
                                      <span className="font-semibold text-lg">{times.arrival} - {times.departure}</span>
-                                     {isBlocked && (
-                                         <span className="px-2 py-0.5 text-xs rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
-                                             차단됨
+                                     {isAutoBlocked && (
+                                         <span className="px-2 py-0.5 text-xs rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                                             {bookingCount}건 예약됨
                                          </span>
                                      )}
-                                     {!isBlocked && (
+                                     {isBlocked && (
+                                         <span className="px-2 py-0.5 text-xs rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
+                                             수동 차단됨
+                                         </span>
+                                     )}
+                                     {isSlotAllowed && (
+                                         <span className="px-2 py-0.5 text-xs rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                                             추가 예약 허용
+                                         </span>
+                                     )}
+                                     {effectivelyBlocked ? (
+                                         <span className="px-2 py-0.5 text-xs rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                                             예약 불가
+                                         </span>
+                                     ) : (
                                          <span className="px-2 py-0.5 text-xs rounded-full bg-green-500/20 text-green-400 border border-green-500/30">
                                              예약 가능
                                          </span>
@@ -776,25 +952,35 @@ export default function AdminPage() {
                                  <p className="text-sm text-muted-foreground">{slot.label} ({slot.type === 'early' ? '이른 시간' : '늦은 시간'})</p>
                               </div>
                               
-                              <Button
-                                 variant={isBlocked ? "outline" : "destructive"}
-                                 className={isBlocked 
-                                    ? "border-green-500/50 hover:bg-green-500/10 hover:text-green-400" 
-                                    : "bg-red-600 hover:bg-red-700 text-white"}
-                                 onClick={() => handleToggleBlock(slot.id, isBlocked)}
-                              >
-                                 {isBlocked ? (
-                                    <>
-                                       <CheckCircle className="mr-2 h-4 w-4" />
-                                       차단 해제
-                                    </>
-                                 ) : (
-                                    <>
-                                       <XCircle className="mr-2 h-4 w-4" />
-                                       시간대 차단
-                                    </>
+                              <div className="flex gap-2">
+                                 {/* Show allow additional booking button when auto-blocked */}
+                                 {isAutoBlocked && (
+                                    <Button
+                                       variant="outline"
+                                       size="sm"
+                                       className={isSlotAllowed 
+                                          ? "border-red-500/50 hover:bg-red-500/10 hover:text-red-400"
+                                          : "border-purple-500/50 hover:bg-purple-500/10 hover:text-purple-400"}
+                                       onClick={() => handleToggleAllowSlot(slot.id, isSlotAllowed)}
+                                    >
+                                       {isSlotAllowed ? '추가 차단' : '추가 허용'}
+                                    </Button>
                                  )}
-                              </Button>
+                                 
+                                 {/* Manual block/unblock button - only show when no bookings */}
+                                 {!isAutoBlocked && (
+                                    <Button
+                                       variant={isBlocked ? "outline" : "destructive"}
+                                       size="sm"
+                                       className={isBlocked 
+                                          ? "border-green-500/50 hover:bg-green-500/10 hover:text-green-400" 
+                                          : "bg-red-600 hover:bg-red-700 text-white"}
+                                       onClick={() => handleToggleBlock(slot.id, isBlocked)}
+                                    >
+                                       {isBlocked ? '차단 해제' : '시간대 차단'}
+                                    </Button>
+                                 )}
+                              </div>
                            </div>
                         );
                      })}

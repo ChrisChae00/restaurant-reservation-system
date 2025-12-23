@@ -75,7 +75,7 @@
       "title": "Règles du Menu de Groupe",
       "mandatory": "Le menu de groupe est obligatoire pour toutes les réservations de 7+ personnes.",
       "noAlaCarte": "Le menu à la carte (commande à l'unité) n'est pas disponible pour les groupes.",
-      "menuTypes": "Vous pouvez mélanger différents menus (Half-Moon, Full-Moon, Végétarien).",
+      "menuTypes": "Vous pouvez mélanger différents menus (Demi-Lune, Pleine-Lune, Végi).",
       "minimumOrder": "Minimum 2 personnes requises par type de menu.",
       "children": "Les enfants de moins de 10 ans peuvent commander 1 plat du menu régulier (à la carte)."
     },
@@ -100,7 +100,8 @@
       "peanutsLabel": "Arachides",
       "peanuts": "Peuvent être présentes dans notre cuisine. Les invités ayant des allergies sévères devraient reconsidérer leur visite.",
       "fishGlutenLabel": "Poisson/Gluten",
-      "fishGluten": "Nos marinades de viande contiennent de la sauce soja et de la sauce de poisson. Veuillez nous informer à l'avance si vous ne pouvez pas en consommer."
+      "fishGluten": "Nos marinades de viande contiennent de la sauce soja et de la sauce de poisson. Veuillez nous informer à l'avance si vous ne pouvez pas en consommer.",
+      "general": "Nous pouvons adapter les ingrédients sur demande. Merci de nous signaler toute allergie ou intolérance à l’avance. Malgré toutes les précautions prises, des traces d’allergènes peuvent être présentes dans notre cuisine."
     },
     "back": "Retour",
     "continue": "Continuer"
@@ -150,7 +151,7 @@
   "confirmation": {
     "title": "Réservation Reçue!",
     "subtitle": "Votre réservation est en attente d'approbation",
-    "pendingMessage": "Notre équipe examinera votre réservation et vous enverra un courriel de confirmation sous peu.",
+    "pendingMessage": "Notre équipe examinera votre réservation et vous enverra un courriel de confirmation dans un délai de 24 heures.",
     "details": {
       "confirmationNumber": "Numéro de Référence",
       "date": "Date",

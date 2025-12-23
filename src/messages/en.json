@@ -100,7 +100,8 @@
       "peanutsLabel": "Peanuts",
       "peanuts": "May be present in our kitchen. Guests with severe allergies should reconsider dining with us.",
       "fishGlutenLabel": "Fish/Gluten",
-      "fishGluten": "Our meat marinades contain soy sauce and fish sauce. Please inform us in advance if you cannot consume these."
+      "fishGluten": "Our meat marinades contain soy sauce and fish sauce. Please inform us in advance if you cannot consume these.",
+      "general": "We can adjust ingredients upon request. Please inform us in advance of any allergies or intolerances. Despite all precautions taken, traces of allergens may be present in our kitchen."
     },
     "back": "Back",
     "continue": "Continue"
@@ -150,7 +151,7 @@
   "confirmation": {
     "title": "Reservation Received!",
     "subtitle": "Your reservation is pending approval",
-    "pendingMessage": "Our team will review your reservation and send you a confirmation email shortly.",
+    "pendingMessage": "Our team will review your reservation and send you a confirmation email within 24 hours.",
     "details": {
       "confirmationNumber": "Reference Number",
       "date": "Date",

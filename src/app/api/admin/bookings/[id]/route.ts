@@ -46,9 +46,11 @@ export async function PATCH(
         if (error) throw error;
         
         // Send cancellation email to customer
-        sendCancellationEmail(data).catch(err =>
-          console.error('Failed to send cancellation email:', err)
-        );
+        try {
+          await sendCancellationEmail(data);
+        } catch (err) {
+          console.error('Failed to send cancellation email:', err);
+        }
         
         return NextResponse.json({ success: true, booking: data });
     }
@@ -116,9 +118,12 @@ export async function PATCH(
 
     // If status changed to 'confirmed', send confirmation email to customer
     if (status === 'confirmed') {
-      sendConfirmationEmail(updatedBooking).catch(err =>
-        console.error('Failed to send confirmation email:', err)
-      );
+      try {
+        await sendConfirmationEmail(updatedBooking);
+      } catch (err) {
+        console.error('Failed to send confirmation email:', err);
+        // Continue - don't block the confirmation response
+      }
     }
 
     return NextResponse.json({ success: true, booking: updatedBooking });

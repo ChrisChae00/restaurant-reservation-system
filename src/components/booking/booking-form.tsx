@@ -274,6 +274,7 @@ export function BookingForm() {
           onAcceptChange={(accepted) => updateFormData('acceptedCancellationPolicy', accepted)}
           onSubmit={handleSubmit}
           onBack={handleBack}
+          onGoToDetails={() => goToStep('details')}
           isSubmitting={isSubmitting}
           firstName={formData.firstName}
           lastName={formData.lastName}

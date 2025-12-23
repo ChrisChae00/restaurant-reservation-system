@@ -56,8 +56,9 @@ export function DetailsStep({
   const [error, setError] = useState<string | null>(null);
 
   const today = startOfDay(new Date());
-  // Reservations can only be made starting from 1 week from today
-  const minDate = addDays(today, 7);
+  // Allow dates from today onwards - actual 7-day rule is enforced by API
+  // This allows admin-allowed dates (including today) to be selectable
+  const minDate = today;
   // Max date: end of current month + 2 months (e.g., Dec -> Feb end)
   const maxDate = endOfMonth(addMonths(startOfMonth(today), 2));
 
@@ -93,7 +94,12 @@ export function DetailsStep({
         
         if (isMounted) {
           if (!data.isOpen) {
-            setError(data.message || t('date.closed'));
+            // Check if it's a 7-day block (show specific message)
+            if (data.isBlocked7Day) {
+              setError(t('date.urgentBooking'));
+            } else {
+              setError(data.message || t('date.closed'));
+            }
             setSlots([]);
           } else {
             setSlots(data.slots);

@@ -20,6 +20,36 @@ const transporter = nodemailer.createTransport({
 });
 
 /**
+ * Retry helper with exponential backoff
+ * Ensures emails are sent reliably even with temporary failures
+ */
+async function sendMailWithRetry(
+  mailOptions: nodemailer.SendMailOptions, 
+  maxRetries: number = 3
+): Promise<void> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await transporter.sendMail(mailOptions);
+      return; // Success
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      console.error(`Email send attempt ${attempt}/${maxRetries} failed:`, lastError.message);
+      
+      if (attempt < maxRetries) {
+        // Exponential backoff: 1s, 2s, 4s
+        const delay = Math.pow(2, attempt - 1) * 1000;
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  // All retries failed - throw to let caller handle
+  throw lastError;
+}
+
+/**
  * Format time from HH:MM:SS to readable format
  */
 function formatTime(time: string): string {
@@ -126,18 +156,14 @@ export async function sendConfirmationEmail(booking: Booking): Promise<void> {
     ? generateEnglishEmail(booking)
     : generateFrenchEmail(booking);
 
-  try {
-    await transporter.sendMail({
-      from: `"${RESTAURANT_NAME}" <${RESTAURANT_EMAIL}>`,
-      to: booking.email,
-      subject,
-      html,
-    });
-    console.log('Confirmation email sent successfully to:', booking.email, '(language:', lang, ')');
-  } catch (error) {
-    console.error('Failed to send confirmation email:', error);
-    // Don't throw - email failure shouldn't block confirmation
-  }
+  // Use retry logic for reliable delivery
+  await sendMailWithRetry({
+    from: `"${RESTAURANT_NAME}" <${RESTAURANT_EMAIL}>`,
+    to: booking.email,
+    subject,
+    html,
+  });
+  console.log('Confirmation email sent successfully to:', booking.email, '(language:', lang, ')');
 }
 
 /**
@@ -362,18 +388,14 @@ export async function sendCancellationEmail(booking: Booking): Promise<void> {
     ? generateEnglishCancellationEmail(booking)
     : generateFrenchCancellationEmail(booking);
 
-  try {
-    await transporter.sendMail({
-      from: `"${RESTAURANT_NAME}" <${RESTAURANT_EMAIL}>`,
-      to: booking.email,
-      subject,
-      html,
-    });
-    console.log('Cancellation email sent successfully to:', booking.email, '(language:', lang, ')');
-  } catch (error) {
-    console.error('Failed to send cancellation email:', error);
-    // Don't throw - email failure shouldn't block cancellation
-  }
+  // Use retry logic for reliable delivery
+  await sendMailWithRetry({
+    from: `"${RESTAURANT_NAME}" <${RESTAURANT_EMAIL}>`,
+    to: booking.email,
+    subject,
+    html,
+  });
+  console.log('Cancellation email sent successfully to:', booking.email, '(language:', lang, ')');
 }
 
 /**
@@ -525,18 +547,14 @@ export async function sendNoShowChargeEmail(
     ? generateEnglishNoShowChargeEmail(booking, chargedAmount, guestCount)
     : generateFrenchNoShowChargeEmail(booking, chargedAmount, guestCount);
 
-  try {
-    await transporter.sendMail({
-      from: `"${RESTAURANT_NAME}" <${RESTAURANT_EMAIL}>`,
-      to: booking.email,
-      subject,
-      html,
-    });
-    console.log('No-show charge email sent successfully to:', booking.email, '(language:', lang, ')');
-  } catch (error) {
-    console.error('Failed to send no-show charge email:', error);
-    // Don't throw - email failure shouldn't block charge process
-  }
+  // Use retry logic for reliable delivery
+  await sendMailWithRetry({
+    from: `"${RESTAURANT_NAME}" <${RESTAURANT_EMAIL}>`,
+    to: booking.email,
+    subject,
+    html,
+  });
+  console.log('No-show charge email sent successfully to:', booking.email, '(language:', lang, ')');
 }
 
 /**
