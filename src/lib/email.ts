@@ -2,6 +2,7 @@
 // Handles sending notification and confirmation emails for reservations
 
 import nodemailer from 'nodemailer';
+import { randomUUID } from 'crypto';
 import type { Booking } from '@/types/booking';
 
 const RESTAURANT_EMAIL = 'lunagroupreservation@gmail.com';
@@ -10,18 +11,54 @@ const ADMIN_URL = process.env.NEXT_PUBLIC_BASE_URL
   ? `${process.env.NEXT_PUBLIC_BASE_URL}/admin` 
   : 'http://localhost:3000/admin';
 
-// Gmail SMTP transporter
+// Track last email send time per recipient to prevent rate limiting
+const lastEmailSendTime = new Map<string, number>();
+const MIN_EMAIL_INTERVAL_MS = 2000; // Minimum 2 seconds between emails to same recipient
+
+// Gmail SMTP transporter with connection pooling
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: process.env.GMAIL_USER,
     pass: process.env.GMAIL_APP_PASSWORD,
   },
+  pool: true, // Enable connection pooling
+  maxConnections: 5,
+  maxMessages: 100,
 });
+
+/**
+ * Generate unique Message-ID to prevent Gmail duplicate detection
+ */
+function generateMessageId(): string {
+  const uniqueId = randomUUID();
+  const domain = 'lunareservation.com';
+  return `<${uniqueId}@${domain}>`;
+}
+
+/**
+ * Wait if needed to ensure minimum interval between emails to same recipient
+ */
+async function enforceRateLimit(recipientEmail: string): Promise<void> {
+  const now = Date.now();
+  const lastSendTime = lastEmailSendTime.get(recipientEmail);
+  
+  if (lastSendTime) {
+    const timeSinceLastEmail = now - lastSendTime;
+    if (timeSinceLastEmail < MIN_EMAIL_INTERVAL_MS) {
+      const waitTime = MIN_EMAIL_INTERVAL_MS - timeSinceLastEmail;
+      console.log(`Rate limiting: waiting ${waitTime}ms before sending to ${recipientEmail}`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+  }
+  
+  lastEmailSendTime.set(recipientEmail, Date.now());
+}
 
 /**
  * Retry helper with exponential backoff
  * Ensures emails are sent reliably even with temporary failures
+ * Adds unique Message-ID to prevent Gmail duplicate detection
  */
 async function sendMailWithRetry(
   mailOptions: nodemailer.SendMailOptions, 
@@ -29,9 +66,33 @@ async function sendMailWithRetry(
 ): Promise<void> {
   let lastError: Error | null = null;
   
+  // Extract recipient email for rate limiting
+  const recipientEmail = typeof mailOptions.to === 'string' 
+    ? mailOptions.to 
+    : Array.isArray(mailOptions.to) 
+      ? mailOptions.to[0]?.toString() || ''
+      : '';
+  
+  // Enforce rate limiting
+  if (recipientEmail) {
+    await enforceRateLimit(recipientEmail);
+  }
+  
+  // Add unique Message-ID to each email to prevent duplicate detection
+  const enhancedOptions = {
+    ...mailOptions,
+    messageId: generateMessageId(),
+    headers: {
+      ...((mailOptions.headers as Record<string, string>) || {}),
+      'X-Mailer': 'Luna-Reservation-System',
+      'X-Priority': '1',
+    },
+  };
+  
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      await transporter.sendMail(mailOptions);
+      const info = await transporter.sendMail(enhancedOptions);
+      console.log(`Email sent successfully. MessageId: ${info.messageId}`);
       return; // Success
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
@@ -128,7 +189,7 @@ ${ADMIN_URL}
 `;
 
   try {
-    await transporter.sendMail({
+    await sendMailWithRetry({
       from: `"${RESTAURANT_NAME}" <${RESTAURANT_EMAIL}>`,
       to: RESTAURANT_EMAIL,
       subject,
