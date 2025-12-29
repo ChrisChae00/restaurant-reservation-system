@@ -38,8 +38,15 @@ function generateMessageId(): string {
 
 /**
  * Wait if needed to ensure minimum interval between emails to same recipient
+ * Skip rate limiting for restaurant's own email to avoid missing notifications
  */
 async function enforceRateLimit(recipientEmail: string): Promise<void> {
+  // Skip rate limiting for restaurant's own email (admin notifications)
+  if (recipientEmail.toLowerCase() === RESTAURANT_EMAIL.toLowerCase()) {
+    console.log(`Skipping rate limit for restaurant email: ${recipientEmail}`);
+    return;
+  }
+  
   const now = Date.now();
   const lastSendTime = lastEmailSendTime.get(recipientEmail);
   
@@ -78,14 +85,19 @@ async function sendMailWithRetry(
     await enforceRateLimit(recipientEmail);
   }
   
-  // Add unique Message-ID to each email to prevent duplicate detection
+  // Add unique Message-ID and headers to prevent duplicate detection and Gmail threading
+  const uniqueMessageId = generateMessageId();
   const enhancedOptions = {
     ...mailOptions,
-    messageId: generateMessageId(),
+    messageId: uniqueMessageId,
     headers: {
       ...((mailOptions.headers as Record<string, string>) || {}),
       'X-Mailer': 'Luna-Reservation-System',
       'X-Priority': '1',
+      // Prevent Gmail from threading emails together
+      'In-Reply-To': '',
+      'References': '',
+      'X-Entity-Ref-ID': uniqueMessageId, // Additional unique identifier
     },
   };
   
@@ -164,7 +176,9 @@ function formatDateFr(dateStr: string): string {
  * Sent when customer submits a new reservation (pending status)
  */
 export async function sendNewReservationNotification(booking: Booking): Promise<void> {
-  const subject = `🔔 새 단체 예약 요청 - ${formatDateKo(booking.booking_date)}`;
+  // Add booking ID and timestamp to subject to prevent Gmail duplicate detection
+  const uniqueRef = booking.id ? `#${booking.id.slice(-6)}` : `@${Date.now()}`;
+  const subject = `🔔 새 단체 예약 요청 ${uniqueRef} - ${formatDateKo(booking.booking_date)}`;
   
   const text = `
 ═════════════════════════════════
@@ -209,9 +223,11 @@ ${ADMIN_URL}
 export async function sendConfirmationEmail(booking: Booking): Promise<void> {
   const lang = booking.email_language || 'en';
   
+  // Add booking ID to subject to prevent Gmail duplicate detection for same customer
+  const bookingRef = booking.id ? ` [Ref: ${booking.id.slice(-6).toUpperCase()}]` : '';
   const subject = lang === 'en'
-    ? `Reservation Confirmation – ${RESTAURANT_NAME}`
-    : `Confirmation de votre réservation – ${RESTAURANT_NAME}`;
+    ? `Reservation Confirmation${bookingRef} – ${RESTAURANT_NAME}`
+    : `Confirmation de votre réservation${bookingRef} – ${RESTAURANT_NAME}`;
   
   const html = lang === 'en' 
     ? generateEnglishEmail(booking)
@@ -441,9 +457,11 @@ function generateFrenchEmail(booking: Booking): string {
 export async function sendCancellationEmail(booking: Booking): Promise<void> {
   const lang = booking.email_language || 'en';
   
+  // Add booking ID to subject to prevent Gmail duplicate detection
+  const bookingRef = booking.id ? ` [Ref: ${booking.id.slice(-6).toUpperCase()}]` : '';
   const subject = lang === 'en'
-    ? `Reservation Cancellation – ${RESTAURANT_NAME}`
-    : `Annulation de votre réservation – ${RESTAURANT_NAME}`;
+    ? `Reservation Cancellation${bookingRef} – ${RESTAURANT_NAME}`
+    : `Annulation de votre réservation${bookingRef} – ${RESTAURANT_NAME}`;
   
   const html = lang === 'en' 
     ? generateEnglishCancellationEmail(booking)
@@ -600,9 +618,11 @@ export async function sendNoShowChargeEmail(
 ): Promise<void> {
   const lang = booking.email_language || 'en';
   
+  // Add booking ID to subject to prevent Gmail duplicate detection
+  const bookingRef = booking.id ? ` [Ref: ${booking.id.slice(-6).toUpperCase()}]` : '';
   const subject = lang === 'en'
-    ? `No-Show Fee Charged – ${RESTAURANT_NAME}`
-    : `Frais de non-présentation – ${RESTAURANT_NAME}`;
+    ? `No-Show Fee Charged${bookingRef} – ${RESTAURANT_NAME}`
+    : `Frais de non-présentation${bookingRef} – ${RESTAURANT_NAME}`;
   
   const html = lang === 'en' 
     ? generateEnglishNoShowChargeEmail(booking, chargedAmount, guestCount)
