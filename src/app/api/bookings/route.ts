@@ -89,10 +89,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Send notification email to restaurant manager (non-blocking)
-    sendNewReservationNotification(booking).catch(err => 
-      console.error('Failed to send notification email:', err)
-    );
+    // Send notification email to restaurant manager
+    // Must await in serverless environment (Vercel) - function terminates after response
+    try {
+      await sendNewReservationNotification(booking);
+    } catch (err) {
+      // Log but don't fail the booking if email fails
+      console.error('Failed to send notification email:', err);
+    }
 
     return NextResponse.json({
       success: true,
