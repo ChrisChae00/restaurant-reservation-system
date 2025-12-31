@@ -176,14 +176,16 @@ function formatDateFr(dateStr: string): string {
  * Sent when customer submits a new reservation (pending status)
  */
 export async function sendNewReservationNotification(booking: Booking): Promise<void> {
-  // Add booking ID and timestamp to subject to prevent Gmail duplicate detection
-  const uniqueRef = booking.id ? `#${booking.id.slice(-6)}` : `@${Date.now()}`;
-  const subject = `🔔 새 단체 예약 요청 ${uniqueRef} - ${formatDateKo(booking.booking_date)}`;
+  // Use booking_reference if available, otherwise fallback to ID
+  const uniqueRef = booking.booking_reference || (booking.id ? `#${booking.id.slice(-6)}` : `@${Date.now()}`);
+  const subject = `🔔 새 단체 예약 요청 #${uniqueRef} - ${formatDateKo(booking.booking_date)}`;
   
   const text = `
 ═════════════════════════════════
        새 예약 요청
 ═════════════════════════════════
+
+예약 번호: #${uniqueRef}
 
 예약 정보:
 - 성함: ${booking.first_name} ${booking.last_name}
@@ -217,17 +219,186 @@ ${ADMIN_URL}
 }
 
 /**
+ * Send reservation received confirmation email to customer (English OR French)
+ * Sent immediately when customer submits a reservation (BEFORE admin confirmation)
+ * This is a SEPARATE email thread from the confirmation email
+ */
+export async function sendReservationReceivedEmail(booking: Booking): Promise<void> {
+  const lang = booking.email_language || 'en';
+  const bookingRef = booking.booking_reference || booking.id?.slice(0, 8).toUpperCase() || '';
+  
+  // Different subject format to ensure separate email thread
+  const subject = lang === 'en'
+    ? `Reservation Received [#${bookingRef}] – ${RESTAURANT_NAME}`
+    : `Demande de réservation reçue [#${bookingRef}] – ${RESTAURANT_NAME}`;
+  
+  const html = lang === 'en' 
+    ? generateEnglishReceivedEmail(booking, bookingRef)
+    : generateFrenchReceivedEmail(booking, bookingRef);
+
+  await sendMailWithRetry({
+    from: `"${RESTAURANT_NAME}" <${RESTAURANT_EMAIL}>`,
+    to: booking.email,
+    subject,
+    html,
+  });
+  console.log('Reservation received email sent to:', booking.email, '(language:', lang, ')');
+}
+
+/**
+ * Generate English reservation received email
+ */
+function generateEnglishReceivedEmail(booking: Booking, bookingRef: string): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; color: #333; max-width: 650px; margin: 0 auto; padding: 20px; line-height: 1.6; }
+    .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #d4af37; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+    .header h1 { margin: 0; font-size: 24px; }
+    .content { padding: 25px; background: #f8f9fa; border: 1px solid #e9ecef; }
+    .intro { margin-bottom: 20px; }
+    .ref-box { background: #d4af37; color: #1a1a2e; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center; }
+    .ref-number { font-size: 28px; font-weight: bold; letter-spacing: 3px; }
+    .details-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #d4af37; }
+    .details-box p { margin: 8px 0; }
+    .next-steps { background: #e8f4fd; padding: 15px; border-radius: 8px; margin: 20px 0; }
+    .contact { margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 8px; }
+    .footer { text-align: center; padding: 20px; background: #1a1a2e; color: #d4af37; border-radius: 0 0 10px 10px; }
+    a { color: #d4af37; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Reservation Request Received</h1>
+  </div>
+  
+  <div class="content">
+    <div class="intro">
+      <p>Dear ${booking.first_name},</p>
+      <p>Thank you for your reservation request at <strong>${RESTAURANT_NAME}</strong>.</p>
+      <p>Your request has been received and is pending confirmation.</p>
+    </div>
+    
+    <div class="ref-box">
+      <div>Your Reservation Number</div>
+      <div class="ref-number">#${bookingRef}</div>
+    </div>
+
+    <div class="details-box">
+      <p><strong>Date:</strong> ${formatDateEn(booking.booking_date)}</p>
+      <p><strong>Time:</strong> ${formatTime(booking.slot_start)} - ${formatTime(booking.slot_end)}</p>
+      <p><strong>Number of Guests:</strong> ${booking.party_size}</p>
+    </div>
+
+    <div class="next-steps">
+      <p><strong>📋 What happens next?</strong></p>
+      <p>Our team will review your reservation request and send you a confirmation email within <strong>24 hours</strong>.</p>
+      <p>Please keep this email for your reference.</p>
+    </div>
+
+    <div class="contact">
+      <p>If you have any questions, please contact us:</p>
+      <p>📧 <a href="mailto:lunagroupreservation@gmail.com">lunagroupreservation@gmail.com</a></p>
+      <p>📞 514-834-8710 (French) / 514-224-8710 (English)</p>
+    </div>
+
+    <p style="margin-top: 20px;"><em>– ${RESTAURANT_NAME}</em></p>
+  </div>
+  
+  <div class="footer">
+    <strong>${RESTAURANT_NAME}</strong>
+  </div>
+</body>
+</html>
+`;
+}
+
+/**
+ * Generate French reservation received email
+ */
+function generateFrenchReceivedEmail(booking: Booking, bookingRef: string): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; color: #333; max-width: 650px; margin: 0 auto; padding: 20px; line-height: 1.6; }
+    .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #d4af37; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+    .header h1 { margin: 0; font-size: 24px; }
+    .content { padding: 25px; background: #f8f9fa; border: 1px solid #e9ecef; }
+    .intro { margin-bottom: 20px; }
+    .ref-box { background: #d4af37; color: #1a1a2e; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center; }
+    .ref-number { font-size: 28px; font-weight: bold; letter-spacing: 3px; }
+    .details-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #d4af37; }
+    .details-box p { margin: 8px 0; }
+    .next-steps { background: #e8f4fd; padding: 15px; border-radius: 8px; margin: 20px 0; }
+    .contact { margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 8px; }
+    .footer { text-align: center; padding: 20px; background: #1a1a2e; color: #d4af37; border-radius: 0 0 10px 10px; }
+    a { color: #d4af37; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📩 Demande de réservation reçue</h1>
+  </div>
+  
+  <div class="content">
+    <div class="intro">
+      <p>Cher/Chère ${booking.first_name},</p>
+      <p>Merci pour votre demande de réservation au <strong>${RESTAURANT_NAME}</strong>.</p>
+      <p>Votre demande a été reçue et est en attente de confirmation.</p>
+    </div>
+    
+    <div class="ref-box">
+      <div>Votre numéro de réservation</div>
+      <div class="ref-number">#${bookingRef}</div>
+    </div>
+
+    <div class="details-box">
+      <p><strong>Date :</strong> ${formatDateFr(booking.booking_date)}</p>
+      <p><strong>Heure :</strong> ${formatTime(booking.slot_start)} - ${formatTime(booking.slot_end)}</p>
+      <p><strong>Nombre de convives :</strong> ${booking.party_size}</p>
+    </div>
+
+    <div class="next-steps">
+      <p><strong>📋 Prochaines étapes</strong></p>
+      <p>Notre équipe examinera votre demande et vous enverra un courriel de confirmation dans les <strong>24 heures</strong>.</p>
+      <p>Veuillez conserver ce courriel pour vos dossiers.</p>
+    </div>
+
+    <div class="contact">
+      <p>Si vous avez des questions, veuillez nous contacter :</p>
+      <p>📧 <a href="mailto:lunagroupreservation@gmail.com">lunagroupreservation@gmail.com</a></p>
+      <p>📞 514-834-8710 (Français) / 514-224-8710 (English)</p>
+    </div>
+
+    <p style="margin-top: 20px;"><em>– ${RESTAURANT_NAME}</em></p>
+  </div>
+  
+  <div class="footer">
+    <strong>${RESTAURANT_NAME}</strong>
+  </div>
+</body>
+</html>
+`;
+}
+
+/**
  * Send confirmation email to customer (English OR French based on preference)
  * Sent when admin confirms the reservation
  */
 export async function sendConfirmationEmail(booking: Booking): Promise<void> {
   const lang = booking.email_language || 'en';
   
-  // Add booking ID to subject to prevent Gmail duplicate detection for same customer
-  const bookingRef = booking.id ? ` [Ref: ${booking.id.slice(-6).toUpperCase()}]` : '';
+  // Use booking_reference if available, otherwise fallback to ID slice
+  const bookingRef = booking.booking_reference || booking.id?.slice(0, 8).toUpperCase() || '';
   const subject = lang === 'en'
-    ? `Reservation Confirmation${bookingRef} – ${RESTAURANT_NAME}`
-    : `Confirmation de votre réservation${bookingRef} – ${RESTAURANT_NAME}`;
+    ? `Reservation Confirmed [#${bookingRef}] – ${RESTAURANT_NAME}`
+    : `Réservation confirmée [#${bookingRef}] – ${RESTAURANT_NAME}`;
   
   const html = lang === 'en' 
     ? generateEnglishEmail(booking)
@@ -457,11 +628,11 @@ function generateFrenchEmail(booking: Booking): string {
 export async function sendCancellationEmail(booking: Booking): Promise<void> {
   const lang = booking.email_language || 'en';
   
-  // Add booking ID to subject to prevent Gmail duplicate detection
-  const bookingRef = booking.id ? ` [Ref: ${booking.id.slice(-6).toUpperCase()}]` : '';
+  // Use booking_reference if available
+  const bookingRef = booking.booking_reference || booking.id?.slice(0, 8).toUpperCase() || '';
   const subject = lang === 'en'
-    ? `Reservation Cancellation${bookingRef} – ${RESTAURANT_NAME}`
-    : `Annulation de votre réservation${bookingRef} – ${RESTAURANT_NAME}`;
+    ? `Reservation Cancelled [#${bookingRef}] – ${RESTAURANT_NAME}`
+    : `Réservation annulée [#${bookingRef}] – ${RESTAURANT_NAME}`;
   
   const html = lang === 'en' 
     ? generateEnglishCancellationEmail(booking)
@@ -618,11 +789,11 @@ export async function sendNoShowChargeEmail(
 ): Promise<void> {
   const lang = booking.email_language || 'en';
   
-  // Add booking ID to subject to prevent Gmail duplicate detection
-  const bookingRef = booking.id ? ` [Ref: ${booking.id.slice(-6).toUpperCase()}]` : '';
+  // Use booking_reference if available
+  const bookingRef = booking.booking_reference || booking.id?.slice(0, 8).toUpperCase() || '';
   const subject = lang === 'en'
-    ? `No-Show Fee Charged${bookingRef} – ${RESTAURANT_NAME}`
-    : `Frais de non-présentation${bookingRef} – ${RESTAURANT_NAME}`;
+    ? `No-Show Fee Charged [#${bookingRef}] – ${RESTAURANT_NAME}`
+    : `Frais de non-présentation [#${bookingRef}] – ${RESTAURANT_NAME}`;
   
   const html = lang === 'en' 
     ? generateEnglishNoShowChargeEmail(booking, chargedAmount, guestCount)

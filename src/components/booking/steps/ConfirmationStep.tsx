@@ -41,9 +41,10 @@ export function ConfirmationStep({ booking, onNewBooking }: ConfirmationStepProp
         <div className="text-center py-4 bg-secondary/50 rounded-lg">
           <p className="text-sm text-muted-foreground mb-1">{t('details.confirmationNumber')}</p>
           <p className="text-2xl font-mono font-bold text-gold tracking-wider">
-            {booking.id.slice(0, 8).toUpperCase()}
+            #{booking.bookingReference}
           </p>
         </div>
+
 
         <div className="grid gap-4">
           <div className="flex items-center gap-4 p-4 rounded-lg bg-secondary/50">

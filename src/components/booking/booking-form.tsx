@@ -130,6 +130,7 @@ export function BookingForm() {
 
       setConfirmedBooking({
         id: result.booking.id,
+        bookingReference: result.booking.bookingReference,
         firstName: result.booking.firstName,
         lastName: result.booking.lastName,
         email: result.booking.email,
@@ -139,6 +140,7 @@ export function BookingForm() {
         slotEnd: result.booking.slotEnd,
       });
       setStep('confirmation');
+
     } catch (error) {
       console.error('Booking error:', error);
       setSubmitError(error instanceof Error ? error.message : 'Failed to create booking');

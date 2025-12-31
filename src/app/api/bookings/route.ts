@@ -5,8 +5,42 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { createBookingRequestSchema } from '@/lib/validations';
 import { checkSlotAvailability } from '@/lib/availability';
-import { sendNewReservationNotification } from '@/lib/email';
+import { sendNewReservationNotification, sendReservationReceivedEmail } from '@/lib/email';
 import { requireAuth } from '@/lib/auth';
+
+/**
+ * Generate a 6-digit booking reference in MMDDNN format
+ * MM = month, DD = day, NN = sequence number (01-99)
+ * Example: 123101 = December 31, first booking
+ */
+async function generateBookingReference(bookingDate: string, supabase: ReturnType<typeof createServerClient>): Promise<string> {
+  const date = new Date(bookingDate + 'T12:00:00');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const datePrefix = `${month}${day}`;
+  
+  // Find existing bookings for this date to determine sequence number
+  const { data: existingBookings } = await supabase
+    .from('bookings')
+    .select('booking_reference')
+    .like('booking_reference', `${datePrefix}%`)
+    .order('booking_reference', { ascending: false })
+    .limit(1);
+  
+  let sequenceNum = 1;
+  if (existingBookings && existingBookings.length > 0 && existingBookings[0].booking_reference) {
+    const lastRef = existingBookings[0].booking_reference;
+    const lastSeq = parseInt(lastRef.slice(-2), 10);
+    sequenceNum = lastSeq + 1;
+  }
+  
+  // Ensure we don't exceed 99 bookings per day (extremely unlikely)
+  if (sequenceNum > 99) {
+    throw new Error('Maximum bookings per day exceeded');
+  }
+  
+  return `${datePrefix}${String(sequenceNum).padStart(2, '0')}`;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -58,6 +92,9 @@ export async function POST(request: NextRequest) {
     // Create booking in database
     const supabase = createServerClient();
 
+    // Generate user-friendly booking reference (MMDDNN format)
+    const bookingReference = await generateBookingReference(bookingDate, supabase);
+
     const { data: booking, error: insertError } = await supabase
       .from('bookings')
       .insert({
@@ -77,6 +114,7 @@ export async function POST(request: NextRequest) {
         stripe_payment_method_id: stripePaymentMethodId,
         status: 'pending',
         email_language: emailLanguage || 'en',
+        booking_reference: bookingReference,
       })
       .select()
       .single();
@@ -98,10 +136,19 @@ export async function POST(request: NextRequest) {
       console.error('Failed to send notification email:', err);
     }
 
+    // Send reservation received confirmation email to customer
+    try {
+      await sendReservationReceivedEmail(booking);
+    } catch (err) {
+      // Log but don't fail the booking if email fails
+      console.error('Failed to send customer confirmation email:', err);
+    }
+
     return NextResponse.json({
       success: true,
       booking: {
         id: booking.id,
+        bookingReference: booking.booking_reference,
         firstName: booking.first_name,
         lastName: booking.last_name,
         email: booking.email,

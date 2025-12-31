@@ -5,6 +5,7 @@ export type EmailLanguage = 'en' | 'fr';
 
 export interface Booking {
   id: string;
+  booking_reference: string | null;
   created_at: string;
   updated_at: string;
   first_name: string;
@@ -28,6 +29,7 @@ export interface Booking {
   penalty_amount: number | null;
   penalty_payment_intent_id: string | null;
 }
+
 
 export interface CreateBookingInput {
   first_name: string;
@@ -96,6 +98,7 @@ export const BOOKING_STEPS: BookingStep[] = [
 
 export interface ConfirmedBooking {
   id: string;
+  bookingReference: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -104,6 +107,7 @@ export interface ConfirmedBooking {
   slotStart: string;
   slotEnd: string;
 }
+
 
 // API Types
 export interface AvailabilityRequest {
