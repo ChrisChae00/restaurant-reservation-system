@@ -121,7 +121,7 @@ export interface SlotAvailability {
   arrivalEnd: string;
   slotEnd: string;
   label: string;
-  type: 'early' | 'late';
+  type: 'early' | 'mid' | 'late';
   available: boolean;
   currentGuests: number;
   remainingCapacity: number;

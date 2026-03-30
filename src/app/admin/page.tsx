@@ -949,7 +949,7 @@ export default function AdminPage() {
                                          </span>
                                      )}
                                  </div>
-                                 <p className="text-sm text-muted-foreground">{slot.label} ({slot.type === 'early' ? '이른 시간' : '늦은 시간'})</p>
+                                 <p className="text-sm text-muted-foreground">{slot.label} ({slot.type === 'early' ? '이른 시간' : slot.type === 'mid' ? '중간 시간' : '늦은 시간'})</p>
                               </div>
                               
                               <div className="flex gap-2">

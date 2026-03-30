@@ -32,7 +32,7 @@ export interface TimeSlot {
   arrivalEnd: string;    // HH:mm format (arrival window end)
   slotEnd: string;       // HH:mm format (when guests must leave)
   label: string;
-  type: 'early' | 'late';
+  type: 'early' | 'mid' | 'late';
 }
 
 export interface DayConfig {
@@ -54,6 +54,14 @@ const TUE_WED_THU_SLOTS: TimeSlot[] = [
     slotEnd: '19:30',
     label: '17:00 → 19:30',
     type: 'early',
+  },
+  {
+    id: 'tue-thu-mid',
+    arrivalStart: '18:00',
+    arrivalEnd: '18:00',
+    slotEnd: '20:15',
+    label: '18:00 → 20:15',
+    type: 'mid',
   },
   {
     id: 'tue-thu-late',
