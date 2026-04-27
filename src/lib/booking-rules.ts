@@ -45,8 +45,36 @@ export interface DayConfig {
 // FIXED TIME SLOTS (No 15-min intervals!)
 // ============================================
 
-// Tuesday, Wednesday, Thursday
-const TUE_WED_THU_SLOTS: TimeSlot[] = [
+// Sunday (same hours as the former Tuesday slots, with dedicated IDs)
+const SUNDAY_SLOTS: TimeSlot[] = [
+  {
+    id: 'sun-early',
+    arrivalStart: '17:00',
+    arrivalEnd: '17:00',
+    slotEnd: '19:30',
+    label: '17:00 → 19:30',
+    type: 'early',
+  },
+  {
+    id: 'sun-mid',
+    arrivalStart: '18:00',
+    arrivalEnd: '18:00',
+    slotEnd: '20:15',
+    label: '18:00 → 20:15',
+    type: 'mid',
+  },
+  {
+    id: 'sun-late',
+    arrivalStart: '20:30',
+    arrivalEnd: '20:30',
+    slotEnd: '23:00',
+    label: '20:30 → 23:00',
+    type: 'late',
+  },
+];
+
+// Wednesday, Thursday (keeping legacy 'tue-thu-*' IDs for DB compatibility)
+const WED_THU_SLOTS: TimeSlot[] = [
   {
     id: 'tue-thu-early',
     arrivalStart: '17:00',
@@ -98,11 +126,11 @@ const FRI_SAT_SLOTS: TimeSlot[] = [
 // ============================================
 // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
 export const RESTAURANT_SCHEDULE: Record<number, DayConfig> = {
-  0: { isOpen: false, dayName: 'Sunday', slots: [] },
+  0: { isOpen: true, dayName: 'Sunday', slots: SUNDAY_SLOTS },
   1: { isOpen: false, dayName: 'Monday', slots: [] },
-  2: { isOpen: true, dayName: 'Tuesday', slots: TUE_WED_THU_SLOTS },
-  3: { isOpen: true, dayName: 'Wednesday', slots: TUE_WED_THU_SLOTS },
-  4: { isOpen: true, dayName: 'Thursday', slots: TUE_WED_THU_SLOTS },
+  2: { isOpen: false, dayName: 'Tuesday', slots: [] },
+  3: { isOpen: true, dayName: 'Wednesday', slots: WED_THU_SLOTS },
+  4: { isOpen: true, dayName: 'Thursday', slots: WED_THU_SLOTS },
   5: { isOpen: true, dayName: 'Friday', slots: FRI_SAT_SLOTS },
   6: { isOpen: true, dayName: 'Saturday', slots: FRI_SAT_SLOTS },
 };
@@ -119,15 +147,21 @@ export function getPartySizeCategory(partySize: number): PartySizeCategory {
   return 'large'; // 15+
 }
 
-export function getSlotsForDate(date: Date): TimeSlot[] {
+/**
+ * Get the DayConfig for a given date based on the weekly schedule.
+ */
+export function getEffectiveDayConfig(date: Date): DayConfig {
   const dayOfWeek = date.getDay();
-  const config = RESTAURANT_SCHEDULE[dayOfWeek];
-  return config?.isOpen ? config.slots : [];
+  return RESTAURANT_SCHEDULE[dayOfWeek] ?? { isOpen: false, dayName: '', slots: [] };
+}
+
+export function getSlotsForDate(date: Date): TimeSlot[] {
+  const config = getEffectiveDayConfig(date);
+  return config.isOpen ? config.slots : [];
 }
 
 export function isRestaurantOpen(date: Date): boolean {
-  const dayOfWeek = date.getDay();
-  return RESTAURANT_SCHEDULE[dayOfWeek]?.isOpen ?? false;
+  return getEffectiveDayConfig(date).isOpen;
 }
 
 export function getDayName(dayOfWeek: number): string {

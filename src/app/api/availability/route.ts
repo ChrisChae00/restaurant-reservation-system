@@ -2,7 +2,7 @@
 // POST /api/availability
 
 import { NextRequest, NextResponse } from 'next/server';
-import { RESTAURANT_SCHEDULE, getDayName } from '@/lib/booking-rules';
+import { RESTAURANT_SCHEDULE, getDayName, getEffectiveDayConfig } from '@/lib/booking-rules';
 import { getAvailabilityForDate } from '@/lib/availability';
 import { availabilityRequestSchema } from '@/lib/validations';
 import { createServerClient } from '@/lib/supabase/server';
@@ -52,9 +52,9 @@ export async function POST(request: NextRequest) {
     const dayOfWeek = dateObj.getDay();
     const dayName = getDayName(dayOfWeek);
 
-    // Check if restaurant is open
-    const dayRules = RESTAURANT_SCHEDULE[dayOfWeek];
-    if (!dayRules || !dayRules.isOpen) {
+    // Check if restaurant is open (respects schedule overrides for transition dates)
+    const dayRules = getEffectiveDayConfig(dateObj);
+    if (!dayRules.isOpen) {
       return NextResponse.json({
         date,
         partySize,
