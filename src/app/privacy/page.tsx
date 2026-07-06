@@ -16,7 +16,7 @@ export default function PrivacyPolicyPage() {
           <section className="space-y-4">
             <h2 className="text-xl font-semibold text-gold-light">1. Introduction</h2>
             <p className="text-sm leading-relaxed">
-              Restaurant Coréen Luna ("we," "us," or "our") is committed to protecting the privacy and security of your personal information. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website or use our reservation system, in compliance with Quebec's <em>Act respecting the protection of personal information in the private sector</em> (Law 25) and other applicable Canadian laws.
+              Restaurant Coréen Luna (&quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) is committed to protecting the privacy and security of your personal information. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website or use our reservation system, in compliance with Quebec&apos;s <em>Act respecting the protection of personal information in the private sector</em> (Law 25) and other applicable Canadian laws.
             </p>
           </section>
 
@@ -85,7 +85,7 @@ export default function PrivacyPolicyPage() {
           <section className="space-y-4">
             <h2 className="text-xl font-semibold text-gold-light">7. Changes to This Policy</h2>
             <p className="text-sm leading-relaxed">
-              We may update this Privacy Policy from time to time. The updated version will be indicated by an updated "Effective Date" at the top of this policy.
+              We may update this Privacy Policy from time to time. The updated version will be indicated by an updated &quot;Effective Date&quot; at the top of this policy.
             </p>
           </section>
         </div>

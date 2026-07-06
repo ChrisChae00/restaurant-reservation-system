@@ -17,7 +17,13 @@ export default async function Home() {
               Restaurant Coréen Luna
             </h1>
           </Link>
-          <LanguageSwitcher currentLocale={locale} />
+          <div className="flex items-center gap-6">
+            <a href="https://www.restoluna.com/" target="_blank" rel="noopener noreferrer" className="text-sm font-light text-muted-foreground hover:text-gold transition-colors hidden sm:flex items-center gap-1.5">
+              {t('mainWebsite')}
+              <svg className="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+            </a>
+            <LanguageSwitcher currentLocale={locale} />
+          </div>
         </div>
       </header>
 
@@ -64,6 +70,10 @@ export default async function Home() {
             </div>
             
             <div className="flex flex-col gap-1.5 text-sm">
+              <a href="https://www.restoluna.com/" target="_blank" rel="noopener noreferrer" className="group flex items-center gap-3 hover:text-gold transition-colors">
+                <span className="w-20 text-[10px] uppercase tracking-[0.15em] text-gold/80 font-medium">Website:</span>
+                <span className="font-light tracking-wide group-hover:text-gold-light opacity-90">restoluna.com</span>
+              </a>
               <a href={`tel:${t('footer.phone_fr').replace(/\D/g, '')}`} className="group flex items-center gap-3 hover:text-gold transition-colors">
                 <span className="w-20 text-[10px] uppercase tracking-[0.15em] text-gold/80 font-medium">Français:</span>
                 <span className="font-light tracking-wide group-hover:text-gold-light opacity-90">{t('footer.phone_fr')}</span>

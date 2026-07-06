@@ -3,7 +3,7 @@
 // Admin Dashboard - Booking Management
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { format, startOfMonth, endOfMonth, isSameDay, parseISO, addWeeks, addMonths, addDays, startOfDay, isBefore } from 'date-fns';
+import { format, parseISO, addDays, startOfDay, isBefore } from 'date-fns';
 import { 
   Users, 
   Calendar as CalendarIcon, 
@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import type { Booking, BookingStatus } from '@/types/booking';
-import { getSlotsForDate, TimeSlot, formatTimeRange } from '@/lib/booking-rules';
+import { getSlotsForDate, formatTimeRange } from '@/lib/booking-rules';
 
 
 const statusColors: Record<BookingStatus, string> = {
