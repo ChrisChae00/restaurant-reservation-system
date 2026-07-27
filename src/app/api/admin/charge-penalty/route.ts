@@ -138,6 +138,14 @@ export async function POST(request: NextRequest) {
       await sendNoShowChargeEmail(booking, paymentIntent.amount / 100, chargeGuestCount);
     } catch (err) {
       console.error('Failed to send no-show charge email:', bookingId, err);
+      const message = err instanceof Error ? err.message : String(err);
+      await supabase
+        .from('bookings')
+        .update({
+          last_email_error: message.slice(0, 500),
+          last_email_error_at: new Date().toISOString(),
+        })
+        .eq('id', bookingId);
     }
 
     return NextResponse.json({

@@ -28,6 +28,8 @@ export interface Booking {
   penalty_charged_at: string | null;
   penalty_amount: number | null;
   penalty_payment_intent_id: string | null;
+  last_email_error: string | null;
+  last_email_error_at: string | null;
 }
 
 

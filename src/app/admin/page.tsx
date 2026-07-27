@@ -3,7 +3,7 @@
 // Admin Dashboard - Booking Management
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { format, parseISO, addDays, startOfDay, isBefore } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { 
   Users, 
   Calendar as CalendarIcon, 
@@ -39,6 +39,7 @@ import {
 import { cn } from "@/lib/utils"
 import type { Booking, BookingStatus } from '@/types/booking';
 import { getSlotsForDate, formatTimeRange } from '@/lib/booking-rules';
+import { isWithin7Days as isDateWithin7Days } from '@/lib/restaurant-time';
 
 
 const statusColors: Record<BookingStatus, string> = {
@@ -88,13 +89,6 @@ export default function AdminPage() {
   const [isDateAllowed, setIsDateAllowed] = useState(false);
   const [slotBookings, setSlotBookings] = useState<Record<string, number>>({}); // slotId -> booking count
   const [allowedSlots, setAllowedSlots] = useState<Set<string>>(new Set()); // Slots that allow additional bookings
-
-  // Helper: Check if selected date is within 7 days
-  const isWithin7Days = (): boolean => {
-    const today = startOfDay(new Date());
-    const minDate = addDays(today, 7);
-    return isBefore(selectedDate, minDate);
-  };
 
   // Charge Modal State
   const [chargeModalBooking, setChargeModalBooking] = useState<Booking | null>(null);
@@ -396,7 +390,7 @@ export default function AdminPage() {
   };
 
   // 예약 취소 (청구 없이)
-  const handleCancelBooking = async (bookingId: string) => {
+  const handleCancelBooking = async (bookingId: string, updatedAt?: string) => {
     if (!confirm('위약금 없이 이 예약을 취소하시겠습니까?')) {
       return;
     }
@@ -409,11 +403,12 @@ export default function AdminPage() {
       const response = await fetch(`/api/admin/bookings/${bookingId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'cancelled' }),
+        body: JSON.stringify({ status: 'cancelled', updated_at: updatedAt }),
       });
 
       if (!response.ok) {
-        throw new Error('예약 취소 실패');
+        const result = await response.json().catch(() => null);
+        throw new Error(result?.error || '예약 취소 실패');
       }
 
       setChargeSuccess('예약이 취소되었습니다 (청구 없음)');
@@ -428,7 +423,7 @@ export default function AdminPage() {
   };
 
   // 예약 확정 (pending -> confirmed)
-  const handleConfirmBooking = async (bookingId: string) => {
+  const handleConfirmBooking = async (bookingId: string, updatedAt?: string) => {
     if (!confirm('이 예약을 확정하시겠습니까? 손님에게 확정 이메일이 발송됩니다.')) {
       return;
     }
@@ -441,11 +436,12 @@ export default function AdminPage() {
       const response = await fetch(`/api/admin/bookings/${bookingId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'confirmed' }),
+        body: JSON.stringify({ status: 'confirmed', updated_at: updatedAt }),
       });
 
       if (!response.ok) {
-        throw new Error('예약 확정 실패');
+        const result = await response.json().catch(() => null);
+        throw new Error(result?.error || '예약 확정 실패');
       }
 
       setChargeSuccess('예약이 확정되었습니다. 손님에게 이메일이 발송되었습니다.');
@@ -486,11 +482,12 @@ export default function AdminPage() {
       const response = await fetch(`/api/admin/bookings/${editingBooking.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editForm),
+        body: JSON.stringify({ ...editForm, updated_at: editingBooking.updated_at }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update booking');
+        const result = await response.json().catch(() => null);
+        throw new Error(result?.error || 'Failed to update booking');
       }
 
       setChargeSuccess('예약이 수정되었습니다');
@@ -498,7 +495,7 @@ export default function AdminPage() {
       fetchBookings();
     } catch (error) {
       console.error('Update error:', error);
-      setChargeError('예약 수정 실패');
+      setChargeError(error instanceof Error ? error.message : '예약 수정 실패');
     } finally {
       setIsUpdating(false);
     }
@@ -756,6 +753,15 @@ export default function AdminPage() {
                             알러지: {booking.allergy_info}
                           </div>
                         )}
+                        {booking.last_email_error && (
+                          <div
+                            className="text-[10px] sm:text-sm text-red-400 flex items-center gap-1"
+                            title={booking.last_email_error}
+                          >
+                            <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4" />
+                            이메일 발송 실패 (손님이 알림을 받지 못했을 수 있습니다)
+                          </div>
+                        )}
                       </div>
 
                       {/* Actions */}
@@ -774,7 +780,7 @@ export default function AdminPage() {
                           <>
                             <Button
                               size="sm"
-                              onClick={() => handleConfirmBooking(booking.id)}
+                              onClick={() => handleConfirmBooking(booking.id, booking.updated_at)}
                               disabled={chargingId === booking.id}
                               className="bg-green-600 hover:bg-green-700 text-white border-0 shadow-sm h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3"
                               title="예약 확정"
@@ -789,7 +795,7 @@ export default function AdminPage() {
                             <Button
                               variant="destructive"
                               size="sm"
-                              onClick={() => handleCancelBooking(booking.id)}
+                              onClick={() => handleCancelBooking(booking.id, booking.updated_at)}
                               disabled={chargingId === booking.id}
                               className="bg-red-600 hover:bg-red-700 text-white border-0 shadow-sm h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3"
                               title="예약 취소"
@@ -808,7 +814,7 @@ export default function AdminPage() {
                             <Button
                               variant="destructive"
                               size="sm"
-                              onClick={() => handleCancelBooking(booking.id)}
+                              onClick={() => handleCancelBooking(booking.id, booking.updated_at)}
                               disabled={chargingId === booking.id}
                               className="bg-red-600 hover:bg-red-700 text-white border-0 shadow-sm h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3"
                               title="취소 (청구 없음)"
@@ -861,7 +867,7 @@ export default function AdminPage() {
                ) : (
                   <div className="space-y-4">
                      {/* 7-Day Rule Notice */}
-                     {isWithin7Days() && (
+                     {isDateWithin7Days(dateFilter) && (
                         <div className={`p-4 rounded-lg border flex items-center justify-between ${
                            isDateAllowed 
                              ? 'bg-green-500/10 border-green-500/30' 
@@ -1066,7 +1072,7 @@ export default function AdminPage() {
                                   size="sm" 
                                   className="h-6 sm:h-7 text-[10px] sm:text-xs bg-green-600 hover:bg-green-700 text-white px-2 sm:px-3"
                                   onClick={() => {
-                                      handleConfirmBooking(booking.id);
+                                      handleConfirmBooking(booking.id, booking.updated_at);
                                   }}
                                >
                                   확정
@@ -1154,7 +1160,7 @@ export default function AdminPage() {
                                   size="sm" 
                                   variant="ghost"
                                   className="h-6 sm:h-7 text-[10px] sm:text-xs text-red-500 hover:text-red-600 hover:bg-red-500/10 px-2 sm:px-3"
-                                  onClick={() => handleCancelBooking(booking.id)}
+                                  onClick={() => handleCancelBooking(booking.id, booking.updated_at)}
                                >
                                   취소
                                </Button>
