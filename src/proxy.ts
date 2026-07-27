@@ -26,12 +26,13 @@ async function verifyTokenMiddleware(token: string): Promise<boolean> {
     }
     await jwtVerify(token, secret);
     return true;
-  } catch {
+  } catch (error) {
+    console.error('Admin token verification failed:', error instanceof Error ? error.message : error);
     return false;
   }
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Only protect /admin routes
@@ -58,14 +59,16 @@ export async function middleware(request: NextRequest) {
   
   if (!token) {
     // No token, redirect to login
+    console.warn('Unauthorized admin access attempt (no token):', pathname);
     return NextResponse.redirect(new URL('/admin/login', request.url));
   }
 
   // Verify token
   const isValid = await verifyTokenMiddleware(token);
-  
+
   if (!isValid) {
     // Invalid token, clear cookie and redirect to login
+    console.warn('Unauthorized admin access attempt (invalid token):', pathname);
     const response = NextResponse.redirect(new URL('/admin/login', request.url));
     response.cookies.delete(COOKIE_NAME);
     return response;
