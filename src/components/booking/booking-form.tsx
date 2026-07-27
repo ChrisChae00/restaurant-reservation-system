@@ -95,7 +95,7 @@ export function BookingForm() {
   };
 
   // Final submission
-  const handleSubmit = async (stripeCustomerId: string, stripePaymentMethodId: string) => {
+  const handleSubmit = async (setupIntentId: string) => {
     if (!formData.date) return;
 
     setIsSubmitting(true);
@@ -117,8 +117,7 @@ export function BookingForm() {
           slotEnd: formData.slotEnd,
           allergyInfo: formData.hasAllergies ? formData.allergyInfo : null,
           emailLanguage: formData.emailLanguage,
-          stripeCustomerId,
-          stripePaymentMethodId,
+          setupIntentId,
         }),
       });
 

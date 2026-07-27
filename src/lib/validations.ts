@@ -1,7 +1,11 @@
 // Form Validation Schemas using Zod
 
 import { z } from 'zod';
-import { MIN_PARTY_SIZE, MAX_PARTY_SIZE } from '@/lib/booking-rules';
+import {
+  MIN_PARTY_SIZE,
+  MAX_PARTY_SIZE,
+  NO_SHOW_FEE_PER_PERSON as NO_SHOW_FEE_PER_PERSON_CAD,
+} from '@/lib/booking-rules';
 
 // HTML sanitization helper to prevent XSS
 const sanitizeHtml = (str: string) => str
@@ -108,21 +112,29 @@ export const createBookingRequestSchema = z.object({
   lastName: detailsSchema.shape.lastName,
   email: detailsSchema.shape.email,
   phone: detailsSchema.shape.phone,
-  partySize: z.number().min(MIN_PARTY_SIZE).max(MAX_PARTY_SIZE),
+  partySize: z.number().int().min(MIN_PARTY_SIZE).max(MAX_PARTY_SIZE),
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  slotId: z.string(),
+  // An empty slotId used to skip the admin block/override lookups entirely, since the
+  // callers guarded on a falsy value.
+  slotId: z.string().min(1),
   slotStart: z.string().regex(/^\d{2}:\d{2}$/),
   slotEnd: z.string().regex(/^\d{2}:\d{2}$/),
   allergyInfo: z.string().max(1000).transform(sanitizeHtml).optional().nullable(),
   emailLanguage: z.enum(['en', 'fr']).optional(),
-  stripeCustomerId: z.string().min(1),
-  stripePaymentMethodId: z.string().min(1),
+  // The card identity is resolved server-side from this SetupIntent. Accepting the customer
+  // and payment-method IDs directly let a caller attach someone else's saved card to their
+  // own booking, which would charge that person for the no-show.
+  setupIntentId: z.string().min(1),
 });
+
+// Ceiling for the manual penalty override. Without one, a mistyped amount in the admin
+// modal (e.g. entering cents where dollars are expected) charges a real card off-session.
+const MAX_PENALTY_AMOUNT_CAD = (NO_SHOW_FEE_PER_PERSON_CAD * MAX_PARTY_SIZE);
 
 export const chargePenaltyRequestSchema = z.object({
   bookingId: z.string().uuid(),
-  guestCount: z.number().min(1).optional(), // If not provided, charge full party
-  customAmount: z.number().min(1).optional(), // Custom amount in dollars (for testing)
+  guestCount: z.number().int().min(1).optional(), // If not provided, charge full party
+  customAmount: z.number().min(1).max(MAX_PENALTY_AMOUNT_CAD).optional(), // Dollars
 });
 
 // Type exports

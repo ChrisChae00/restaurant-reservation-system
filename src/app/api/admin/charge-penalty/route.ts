@@ -75,7 +75,9 @@ export async function POST(request: NextRequest) {
     // Convert custom amount to cents if provided
     const customAmountCents = customAmount ? Math.round(customAmount * 100) : undefined;
 
-    // Charge the no-show fee ($20 per person or custom amount)
+    // Charge the no-show fee ($20 per person or custom amount).
+    // chargeNoShowFee sends an idempotency key, so a retry of this request returns the
+    // original PaymentIntent rather than charging the guest a second time.
     const paymentIntent = await chargeNoShowFee(
       booking.stripe_customer_id,
       booking.stripe_payment_method_id,
@@ -83,6 +85,24 @@ export async function POST(request: NextRequest) {
       booking.id,
       customAmountCents
     );
+
+    // confirm: true can return without throwing while the payment is still unsettled
+    // (processing, requires_action, requires_payment_method). Recording those as charged
+    // would permanently mark the booking paid and email the guest about money that never
+    // moved.
+    if (paymentIntent.status !== 'succeeded') {
+      console.error(
+        'PaymentIntent did not succeed:', paymentIntent.id, paymentIntent.status
+      );
+      return NextResponse.json(
+        {
+          error: 'The payment did not complete. Please check Stripe before retrying.',
+          paymentIntentId: paymentIntent.id,
+          paymentStatus: paymentIntent.status,
+        },
+        { status: 402 }
+      );
+    }
 
     // Update booking status
     const { error: updateError } = await supabase
@@ -96,13 +116,37 @@ export async function POST(request: NextRequest) {
       .eq('id', bookingId);
 
     if (updateError) {
-      console.error('Failed to update booking status:', updateError);
-      // Payment was successful but status update failed
-      // This is logged but shouldn't fail the API response
+      // The guest's card has already been charged. Reporting success here left the booking
+      // looking uncharged, so staff would press the button again.
+      console.error(
+        'Charged the card but failed to record it. Booking:', bookingId,
+        'PaymentIntent:', paymentIntent.id, updateError
+      );
+      return NextResponse.json(
+        {
+          error: 'The card was charged, but the booking could not be updated. Do not retry — verify in Stripe.',
+          chargedAmount: paymentIntent.amount / 100,
+          paymentIntentId: paymentIntent.id,
+        },
+        { status: 500 }
+      );
     }
 
-    // Send email notification to customer
-    await sendNoShowChargeEmail(booking, paymentIntent.amount / 100, chargeGuestCount);
+    // Send email notification to customer. A mail failure must not surface as a charge
+    // failure, or staff would retry a charge that already went through.
+    try {
+      await sendNoShowChargeEmail(booking, paymentIntent.amount / 100, chargeGuestCount);
+    } catch (err) {
+      console.error('Failed to send no-show charge email:', bookingId, err);
+      const message = err instanceof Error ? err.message : String(err);
+      await supabase
+        .from('bookings')
+        .update({
+          last_email_error: message.slice(0, 500),
+          last_email_error_at: new Date().toISOString(),
+        })
+        .eq('id', bookingId);
+    }
 
     return NextResponse.json({
       success: true,

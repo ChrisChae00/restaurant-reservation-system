@@ -33,10 +33,12 @@ export async function POST(request: NextRequest) {
       party_size: partySize?.toString() || '',
     });
 
+    // Only the client secret goes back. This route is unauthenticated and matches existing
+    // Stripe customers by email, so returning the customer ID handed any caller the
+    // identifier for someone else's saved card. The booking API resolves the customer and
+    // payment method from the SetupIntent itself.
     return NextResponse.json({
       clientSecret: setupIntent.client_secret,
-      setupIntentId: setupIntent.id,
-      customerId: setupIntent.customer,
     });
   } catch (error) {
     console.error('SetupIntent creation error:', error);

@@ -182,6 +182,7 @@
     "bookingFailed": "Failed to create reservation. Please try again."
   },
   "home": {
+    "mainWebsite": "Visit Main Website",
     "hero": {
       "badge": "Montreal's Finest",
       "title": "Group Reservations",

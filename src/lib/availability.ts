@@ -2,7 +2,7 @@
 // Handles fixed time slot capacity calculations
 
 import { createServerClient } from '@/lib/supabase/server';
-import { TimeSlot, getSlotsForDate } from '@/lib/booking-rules';
+import { TimeSlot, getSlotsForDate, MAX_CAPACITY } from '@/lib/booking-rules';
 import type { SlotAvailability } from '@/types/booking';
 
 /**
@@ -13,13 +13,20 @@ export async function isSlotBlocked(
   slotId: string
 ): Promise<boolean> {
   const supabase = createServerClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('blocked_slots')
     .select('id')
     .eq('date', date)
     .eq('slot_id', slotId)
-    .single();
-  
+    .maybeSingle();
+
+  // Discarding the error here reported a transient database failure as "not blocked",
+  // which made admin-blocked slots bookable for the duration of the incident.
+  if (error) {
+    console.error('Error checking blocked_slots:', error);
+    throw new Error('Failed to check slot availability');
+  }
+
   return !!data;
 }
 
@@ -28,11 +35,17 @@ export async function isSlotBlocked(
  */
 export async function getBlockedSlotIds(date: string): Promise<Set<string>> {
   const supabase = createServerClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('blocked_slots')
     .select('slot_id')
     .eq('date', date);
-  
+
+  // Returning an empty set on error would advertise every blocked slot as available.
+  if (error) {
+    console.error('Error fetching blocked_slots:', error);
+    throw new Error('Failed to check slot availability');
+  }
+
   return new Set((data || []).map(row => row.slot_id));
 }
 
@@ -132,6 +145,8 @@ export async function checkSlotAvailability(
   available: boolean;
   currentGuests: number;
   remainingCapacity: number;
+  /** True when the slot is only available because an admin opened it for an extra party. */
+  viaOverride: boolean;
 }> {
   // 1. Check if blocked by admin (if slotId provided)
   if (slotId) {
@@ -141,6 +156,7 @@ export async function checkSlotAvailability(
         available: false,
         currentGuests: 0,
         remainingCapacity: 0,
+        viaOverride: false,
       };
     }
   }
@@ -152,19 +168,28 @@ export async function checkSlotAvailability(
   // 3. If booking exists, check if admin allowed additional bookings
   if (hasExistingBooking && slotId) {
     const supabase = createServerClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('allowed_slots')
       .select('id')
       .eq('date', date)
       .eq('slot_id', slotId)
-      .single();
-    
-    // If admin allowed additional bookings, slot is available
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error checking allowed_slots:', error);
+      throw new Error('Failed to check slot availability');
+    }
+
+    // If admin allowed additional bookings, the slot is available but still capped at
+    // MAX_CAPACITY total guests — otherwise repeated overrides could stack unlimited teams
+    // into one seating.
     if (data) {
+      const remainingCapacity = Math.max(0, MAX_CAPACITY - currentGuests);
       return {
-        available: true,
+        available: partySize <= remainingCapacity,
         currentGuests,
-        remainingCapacity: partySize,
+        remainingCapacity,
+        viaOverride: true,
       };
     }
   }
@@ -173,6 +198,7 @@ export async function checkSlotAvailability(
     available: !hasExistingBooking,
     currentGuests,
     remainingCapacity: hasExistingBooking ? 0 : partySize, // If available, user can book their party size
+    viaOverride: false,
   };
 }
 

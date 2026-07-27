@@ -182,6 +182,7 @@
     "bookingFailed": "Échec de la création de la réservation. Veuillez réessayer."
   },
   "home": {
+    "mainWebsite": "Visiter le Site Principal",
     "hero": {
       "badge": "L'excellence à Montréal",
       "title": "Réservations de Groupe",
