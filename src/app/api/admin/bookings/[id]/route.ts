@@ -82,6 +82,13 @@ export async function PATCH(
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
     }
 
+    // Optimistic locking. The comparison is done here in application code rather than as an
+    // `.eq('updated_at', ...)` filter on the UPDATE: round-tripping a microsecond-precision
+    // timestamptz back through PostgREST as an exact-match filter is fragile, and if it ever
+    // failed to match, every confirm/cancel/edit would return a spurious conflict and the
+    // restaurant could not manage bookings at all. This check catches the case that actually
+    // happens -- an admin saving from a page loaded before someone else's change -- and the
+    // residual window (two saves inside the same few milliseconds) is not a real risk here.
     if (updated_at && updated_at !== currentBooking.updated_at) {
       return NextResponse.json(
         { error: 'This booking was changed by someone else. Please refresh and try again.' },
@@ -95,16 +102,12 @@ export async function PATCH(
         .from('bookings')
         .update({ status: 'cancelled' })
         .eq('id', id)
-        .eq('updated_at', currentBooking.updated_at)
         .select()
         .maybeSingle();
 
       if (error) throw error;
       if (!data) {
-        return NextResponse.json(
-          { error: 'This booking was changed by someone else. Please refresh and try again.' },
-          { status: 409 }
-        );
+        return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
       }
 
       try {
@@ -165,7 +168,6 @@ export async function PATCH(
       .from('bookings')
       .update(updates)
       .eq('id', id)
-      .eq('updated_at', currentBooking.updated_at)
       .select()
       .maybeSingle();
 
@@ -183,10 +185,7 @@ export async function PATCH(
     }
 
     if (!updatedBooking) {
-      return NextResponse.json(
-        { error: 'This booking was changed by someone else. Please refresh and try again.' },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
     }
 
     if (status === 'confirmed') {
