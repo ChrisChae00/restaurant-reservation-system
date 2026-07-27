@@ -2,7 +2,7 @@
 // Handles fixed time slot capacity calculations
 
 import { createServerClient } from '@/lib/supabase/server';
-import { TimeSlot, getSlotsForDate } from '@/lib/booking-rules';
+import { TimeSlot, getSlotsForDate, MAX_CAPACITY } from '@/lib/booking-rules';
 import type { SlotAvailability } from '@/types/booking';
 
 /**
@@ -180,12 +180,15 @@ export async function checkSlotAvailability(
       throw new Error('Failed to check slot availability');
     }
 
-    // If admin allowed additional bookings, slot is available
+    // If admin allowed additional bookings, the slot is available but still capped at
+    // MAX_CAPACITY total guests — otherwise repeated overrides could stack unlimited teams
+    // into one seating.
     if (data) {
+      const remainingCapacity = Math.max(0, MAX_CAPACITY - currentGuests);
       return {
-        available: true,
+        available: partySize <= remainingCapacity,
         currentGuests,
-        remainingCapacity: partySize,
+        remainingCapacity,
         viaOverride: true,
       };
     }

@@ -2,17 +2,27 @@
 // POST: Login, DELETE: Logout
 
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  verifyAdminCredentials, 
-  createToken, 
-  setAuthCookie, 
+import {
+  verifyAdminCredentials,
+  createToken,
+  setAuthCookie,
   deleteAuthCookie,
-  refreshToken 
+  refreshToken
 } from '@/lib/auth';
+import { getClientIdentifier, isRateLimited, recordFailedAttempt } from '@/lib/login-rate-limit';
 
 // POST /api/admin/auth - Login
 export async function POST(request: NextRequest) {
   try {
+    const identifier = getClientIdentifier(request);
+
+    if (await isRateLimited(identifier)) {
+      return NextResponse.json(
+        { error: 'Too many failed login attempts. Please try again later.' },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { username, password } = body;
 
@@ -27,6 +37,7 @@ export async function POST(request: NextRequest) {
     // Verify credentials
     const isValid = verifyAdminCredentials(username, password);
     if (!isValid) {
+      await recordFailedAttempt(identifier);
       // Add delay to prevent timing attacks
       await new Promise(resolve => setTimeout(resolve, 500));
       return NextResponse.json(

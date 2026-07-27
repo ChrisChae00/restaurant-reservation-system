@@ -216,6 +216,14 @@ export async function POST(request: NextRequest) {
     } catch (err) {
       // Log but don't fail the booking if email fails
       console.error('Failed to send customer confirmation email:', err);
+      const message = err instanceof Error ? err.message : String(err);
+      await supabase
+        .from('bookings')
+        .update({
+          last_email_error: message.slice(0, 500),
+          last_email_error_at: new Date().toISOString(),
+        })
+        .eq('id', booking.id);
     }
 
     return NextResponse.json({

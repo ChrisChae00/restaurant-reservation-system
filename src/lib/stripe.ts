@@ -4,7 +4,7 @@ import Stripe from 'stripe';
 // Lazy initialization to avoid build-time errors when env vars are missing
 let stripeInstance: Stripe | null = null;
 
-function getStripe(): Stripe {
+export function getStripe(): Stripe {
   if (!stripeInstance) {
     if (!process.env.STRIPE_SECRET_KEY) {
       throw new Error('STRIPE_SECRET_KEY environment variable is not set');
@@ -64,6 +64,20 @@ export async function createSetupIntent(
   });
 
   return setupIntent;
+}
+
+/**
+ * Verify a webhook request's Stripe-Signature header against the raw request body.
+ * Throws if the signature is missing, malformed, or does not match — callers should treat
+ * that as a 400, never process the payload, and never fall back to trusting it unverified.
+ */
+export function verifyWebhookSignature(payload: string, signature: string): Stripe.Event {
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    throw new Error('STRIPE_WEBHOOK_SECRET environment variable is not set');
+  }
+  const stripe = getStripe();
+  return stripe.webhooks.constructEvent(payload, signature, webhookSecret);
 }
 
 export type VerifiedCard = {

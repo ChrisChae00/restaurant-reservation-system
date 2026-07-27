@@ -5,45 +5,17 @@
 // 7-day window, or at a time that is not a real service slot. Both routes now share this
 // module so the rules cannot drift apart.
 
-import { addDays, isBefore } from 'date-fns';
 import { createServerClient } from '@/lib/supabase/server';
 import { getEffectiveDayConfig, getSlotsForDate, type TimeSlot } from '@/lib/booking-rules';
+import {
+  RESTAURANT_TIMEZONE,
+  getRestaurantDateString,
+  parseDateOnly,
+  isPastDate,
+  isWithin7Days,
+} from '@/lib/restaurant-time';
 
-export const RESTAURANT_TIMEZONE = 'America/Montreal';
-
-/**
- * Today's calendar date in the restaurant's timezone, as YYYY-MM-DD.
- *
- * Using the runtime's local date instead would shift the 7-day cutoff by a day every
- * evening on a UTC host (Vercel): after 20:00 in Montreal it is already tomorrow in UTC.
- */
-export function getRestaurantDateString(now: Date = new Date()): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: RESTAURANT_TIMEZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(now);
-}
-
-/** Parse a YYYY-MM-DD string at local noon, so DST and UTC offsets can never shift the day. */
-function parseDateOnly(dateStr: string): Date {
-  return new Date(`${dateStr}T12:00:00`);
-}
-
-/** True when the date falls before today in the restaurant's timezone. */
-export function isPastDate(dateStr: string, now: Date = new Date()): boolean {
-  return isBefore(parseDateOnly(dateStr), parseDateOnly(getRestaurantDateString(now)));
-}
-
-/**
- * True when the date is inside the 7-day advance-booking window and therefore requires an
- * explicit admin override in `allowed_dates`.
- */
-export function isWithin7Days(dateStr: string, now: Date = new Date()): boolean {
-  const minDate = addDays(parseDateOnly(getRestaurantDateString(now)), 7);
-  return isBefore(parseDateOnly(dateStr), minDate);
-}
+export { RESTAURANT_TIMEZONE, getRestaurantDateString, isPastDate, isWithin7Days };
 
 /** True when an admin has explicitly opened this date inside the 7-day window. */
 export async function isDateAllowed(dateStr: string): Promise<boolean> {
