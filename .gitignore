@@ -37,7 +37,10 @@ yarn-error.log*
 .vercel
 
 # supabase
-/supabase
+# Migrations are the schema's source of truth and are tracked; only local CLI state is not.
+/supabase/.branches
+/supabase/.temp
+/supabase/config.toml
 
 # typescript
 *.tsbuildinfo

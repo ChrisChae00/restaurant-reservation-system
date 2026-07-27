@@ -23,7 +23,7 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 interface CardGuaranteeStepProps {
   acceptedCancellationPolicy: boolean;
   onAcceptChange: (accepted: boolean) => void;
-  onSubmit: (stripeCustomerId: string, stripePaymentMethodId: string) => void;
+  onSubmit: (setupIntentId: string) => void;
   onBack: () => void;
   onGoToDetails: () => void;
   isSubmitting: boolean;
@@ -117,7 +117,7 @@ function CardGuaranteeInner({
         throw new Error('Failed to initialize payment');
       }
 
-      const { clientSecret, customerId } = await setupResponse.json();
+      const { clientSecret } = await setupResponse.json();
 
       // 2. Confirm SetupIntent with card details
       const { error: stripeError, setupIntent } = await stripe.confirmCardSetup(
@@ -139,8 +139,9 @@ function CardGuaranteeInner({
       }
 
       if (setupIntent?.status === 'succeeded') {
-        // Pass customer ID and payment method ID to parent
-        onSubmit(customerId, setupIntent.payment_method as string);
+        // Only the SetupIntent ID goes to the booking API; it resolves the customer and
+        // payment method with Stripe directly rather than trusting the browser.
+        onSubmit(setupIntent.id);
       } else {
         setCardError('Card verification incomplete. Please try again.');
       }
