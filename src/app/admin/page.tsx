@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import type { Booking, BookingStatus } from '@/types/booking';
-import { getSlotsForDate, formatTimeRange } from '@/lib/booking-rules';
+import { getSlotsForDate, formatTimeRange, MAX_CAPACITY } from '@/lib/booking-rules';
 import { isWithin7Days as isDateWithin7Days } from '@/lib/restaurant-time';
 
 
@@ -63,6 +63,7 @@ export default function AdminPage() {
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
   const [editForm, setEditForm] = useState<Partial<Booking>>({});
   const [isUpdating, setIsUpdating] = useState(false);
+  const [editSlotOthersTotal, setEditSlotOthersTotal] = useState<number | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -181,6 +182,47 @@ export default function AdminPage() {
       fetchBlockedSlots();
     }
   }, [dateFilter, statusFilter, activeTab]);
+
+  // The capacity warning in the edit modal needs an accurate count for the target
+  // slot, which may be on a date not currently loaded into `bookings` (e.g. editing
+  // from the 승인 대기 card in Quick View, whose date rarely matches the list filter).
+  useEffect(() => {
+    if (!editingBooking) {
+      setEditSlotOthersTotal(null);
+      return;
+    }
+    const targetDate = editForm.booking_date ?? editingBooking.booking_date;
+    const targetStart = (editForm.slot_start ?? editingBooking.slot_start)?.slice(0, 5);
+    const targetEnd = (editForm.slot_end ?? editingBooking.slot_end)?.slice(0, 5);
+    if (!targetDate || !targetStart || !targetEnd) {
+      setEditSlotOthersTotal(null);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch(`/api/bookings?date=${targetDate}`);
+        const data = await response.json();
+        const total = ((data.bookings || []) as Booking[])
+          .filter((b) =>
+            b.id !== editingBooking.id &&
+            b.slot_start?.slice(0, 5) === targetStart &&
+            b.slot_end?.slice(0, 5) === targetEnd &&
+            ['pending', 'confirmed', 'completed'].includes(b.status)
+          )
+          .reduce((sum, b) => sum + b.party_size, 0);
+        if (!cancelled) setEditSlotOthersTotal(total);
+      } catch (error) {
+        console.error('Failed to fetch slot occupancy:', error);
+        if (!cancelled) setEditSlotOthersTotal(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [editingBooking, editForm.booking_date, editForm.slot_start, editForm.slot_end]);
 
   useEffect(() => {
     if (chargeSuccess || chargeError) {
@@ -493,6 +535,7 @@ export default function AdminPage() {
       setChargeSuccess('예약이 수정되었습니다');
       setEditingBooking(null);
       fetchBookings();
+      fetchDashboardData(currentMonth, confirmedRangeFilter);
     } catch (error) {
       console.error('Update error:', error);
       setChargeError(error instanceof Error ? error.message : '예약 수정 실패');
@@ -1068,9 +1111,18 @@ export default function AdminPage() {
                               )}
                             </div>
                             <div className="mt-2 sm:mt-3 flex justify-end gap-1 sm:gap-2">
-                               <Button 
-                                  size="sm" 
+                               <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 sm:h-7 text-[10px] sm:text-xs px-2 sm:px-3"
+                                  onClick={() => handleEditClick(booking)}
+                               >
+                                  수정
+                               </Button>
+                               <Button
+                                  size="sm"
                                   className="h-6 sm:h-7 text-[10px] sm:text-xs bg-green-600 hover:bg-green-700 text-white px-2 sm:px-3"
+                                  disabled={chargingId === booking.id}
                                   onClick={() => {
                                       handleConfirmBooking(booking.id, booking.updated_at);
                                   }}
@@ -1176,9 +1228,9 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* Edit Modal (Overlay) */}
+        {/* Edit Modal (Overlay) — stacks above Quick View (z-50) so 수정 works from within 승인 대기 */}
         {editingBooking && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
             <Card className="w-full max-w-lg bg-background border-gold/20 max-h-[90vh] overflow-y-auto">
               <CardHeader>
                 <CardTitle>예약 수정</CardTitle>
@@ -1249,11 +1301,24 @@ export default function AdminPage() {
 
                    <div className="space-y-2">
                        <Label>인원수</Label>
-                       <Input 
+                       <Input
                          type="number"
-                         value={editForm.party_size || ''} 
-                         onChange={(e) => setEditForm(prev => ({...prev, party_size: parseInt(e.target.value) || 0}))} 
+                         min={1}
+                         value={editForm.party_size || ''}
+                         onChange={(e) => setEditForm(prev => ({...prev, party_size: parseInt(e.target.value) || 0}))}
                        />
+                       {editSlotOthersTotal !== null && (() => {
+                         const total = editSlotOthersTotal + (editForm.party_size || 0);
+                         if (total > MAX_CAPACITY) {
+                           return (
+                             <p className="text-xs text-amber-400 flex items-center gap-1">
+                               <AlertTriangle className="h-3 w-3" />
+                               이 시간대 총 인원이 {total}명으로 정원({MAX_CAPACITY}명)을 초과합니다. 저장은 가능합니다.
+                             </p>
+                           );
+                         }
+                         return null;
+                       })()}
                     </div>
 
                     <div className="space-y-2">
