@@ -9,6 +9,7 @@ import type { BookingStatus } from '@/types/booking';
 // Postgres unique-violation, also raised here by the one-team-per-slot index when an
 // admin edit moves a booking into an already-occupied slot.
 const PG_UNIQUE_VIOLATION = '23505';
+const PG_CHECK_VIOLATION = '23514';
 const SLOT_CONFLICT_INDEX = 'idx_bookings_one_team_per_slot';
 
 const VALID_STATUSES: BookingStatus[] = [
@@ -158,6 +159,9 @@ export async function PATCH(
     }
 
     if (sizeChanged) {
+      // Admins may raise a booking above the public 7-14 range (e.g. a guest's
+      // group grew after booking) — the DB CHECK constraint only requires >= 1.
+      // No slot-capacity cap here either; a capacity warning is surfaced client-side.
       if (!Number.isInteger(party_size) || party_size < 1) {
         return NextResponse.json({ error: 'Invalid party size' }, { status: 400 });
       }
@@ -180,6 +184,12 @@ export async function PATCH(
             { status: 409 }
           );
         }
+      }
+      if (error.code === PG_CHECK_VIOLATION) {
+        return NextResponse.json(
+          { error: 'Party size is not allowed by the database constraint' },
+          { status: 400 }
+        );
       }
       throw error;
     }
