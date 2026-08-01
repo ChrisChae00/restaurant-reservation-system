@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { sendConfirmationEmail, sendCancellationEmail } from '@/lib/email';
 import { requireAuth } from '@/lib/auth';
-import { getSlotsForDate } from '@/lib/booking-rules';
-import { parseDateOnly } from '@/lib/restaurant-time';
 import type { BookingStatus } from '@/types/booking';
 
 // Postgres unique-violation, also raised here by the one-team-per-slot index when an
@@ -145,13 +143,13 @@ export async function PATCH(
       const targetStart = (slot_start ?? currentBooking.slot_start).slice(0, 5);
       const targetEnd = (slot_end ?? currentBooking.slot_end).slice(0, 5);
 
-      const matchedSlot = getSlotsForDate(parseDateOnly(targetDate)).find(
-        (slot) => slot.arrivalStart === targetStart && slot.slotEnd === targetEnd
-      );
+      const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+      const validTimes = TIME_RE.test(targetStart) && TIME_RE.test(targetEnd);
+      const validRange = targetEnd === '00:00' || targetStart < targetEnd;
 
-      if (!matchedSlot) {
+      if (!validTimes || !validRange) {
         return NextResponse.json(
-          { error: 'The selected date and time do not match a valid reservation slot' },
+          { error: 'Invalid start/end time' },
           { status: 400 }
         );
       }

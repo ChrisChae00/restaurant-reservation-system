@@ -1,7 +1,7 @@
 'use client';
 
 // Admin Dashboard - Booking Management
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { format, parseISO } from 'date-fns';
 import { 
@@ -41,6 +41,66 @@ import type { Booking, BookingStatus } from '@/types/booking';
 import { getSlotsForDate, formatTimeRange, MAX_CAPACITY } from '@/lib/booking-rules';
 import { isWithin7Days as isDateWithin7Days } from '@/lib/restaurant-time';
 
+
+const TIME_OPTIONS = Array.from({ length: 144 }, (_, i) =>
+  `${String(Math.floor(i / 6)).padStart(2, '0')}:${String((i % 6) * 10).padStart(2, '0')}`
+);
+
+function nearestTimeOptionIndex(value: string): number | null {
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value);
+  if (!match) return null;
+  const minutes = Number(match[1]) * 60 + Number(match[2]);
+  return Math.round(minutes / 10);
+}
+
+function TimeField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    const index = nearestTimeOptionIndex(value);
+    if (index === null) return;
+    // PopoverContent mounts into a portal a frame after `open` flips, so the ref
+    // isn't attached yet on the frame this effect first runs.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => optionRefs.current[index]?.scrollIntoView({ block: 'center' }));
+    });
+  }, [open, value]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Input
+          type="text"
+          placeholder="HH:MM"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={() => setOpen(true)}
+        />
+      </PopoverTrigger>
+      <PopoverContent className="w-28 p-1 max-h-40 overflow-y-auto z-[70]" align="start">
+        {TIME_OPTIONS.map((t, i) => {
+          const selected = t === value;
+          return (
+            <button
+              key={t}
+              ref={(el) => { optionRefs.current[i] = el; }}
+              type="button"
+              className={cn(
+                'w-full text-left px-2 py-1 rounded text-sm hover:bg-gold/10',
+                selected && 'bg-gold/20 text-gold font-medium'
+              )}
+              onClick={() => { onChange(t); setOpen(false); }}
+            >
+              {t}
+            </button>
+          );
+        })}
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 const statusColors: Record<BookingStatus, string> = {
   pending: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
@@ -1291,7 +1351,7 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
                      <div className="space-y-2">
                        <Label>날짜</Label>
                        <Input
@@ -1301,46 +1361,18 @@ export default function AdminPage() {
                        />
                     </div>
                     <div className="space-y-2">
-                       <Label>시간대</Label>
-                       {(() => {
-                         const daySlots = editForm.booking_date
-                           ? getSlotsForDate(new Date(editForm.booking_date + 'T12:00:00'))
-                           : [];
-                         const currentStart = editForm.slot_start?.slice(0, 5) || '';
-                         const currentEnd = editForm.slot_end?.slice(0, 5) || '';
-                         const currentValue = `${currentStart}-${currentEnd}`;
-                         const hasCurrentSlot = daySlots.some(
-                           (slot) => slot.arrivalStart === currentStart && slot.slotEnd === currentEnd
-                         );
-                         return (
-                           <Select
-                             value={currentValue}
-                             onValueChange={(value) => {
-                               const [start, end] = value.split('-');
-                               setEditForm(prev => ({...prev, slot_start: start, slot_end: end}));
-                             }}
-                           >
-                             <SelectTrigger>
-                               <SelectValue placeholder="시간대 선택" />
-                             </SelectTrigger>
-                             <SelectContent>
-                               {!hasCurrentSlot && currentStart && currentEnd && (
-                                 <SelectItem value={currentValue}>
-                                   {currentStart} - {currentEnd} (정의되지 않은 시간대)
-                                 </SelectItem>
-                               )}
-                               {daySlots.map((slot) => (
-                                 <SelectItem
-                                   key={slot.id}
-                                   value={`${slot.arrivalStart}-${slot.slotEnd}`}
-                                 >
-                                   {slot.label}
-                                 </SelectItem>
-                               ))}
-                             </SelectContent>
-                           </Select>
-                         );
-                       })()}
+                       <Label>시작 시간</Label>
+                       <TimeField
+                         value={editForm.slot_start?.slice(0, 5) || ''}
+                         onChange={(v) => setEditForm(prev => ({...prev, slot_start: v}))}
+                       />
+                    </div>
+                    <div className="space-y-2">
+                       <Label>종료 시간</Label>
+                       <TimeField
+                         value={editForm.slot_end?.slice(0, 5) || ''}
+                         onChange={(v) => setEditForm(prev => ({...prev, slot_end: v}))}
+                       />
                     </div>
                   </div>
 
