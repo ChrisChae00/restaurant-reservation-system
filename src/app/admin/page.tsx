@@ -46,6 +46,13 @@ const TIME_OPTIONS = Array.from({ length: 144 }, (_, i) =>
   `${String(Math.floor(i / 6)).padStart(2, '0')}:${String((i % 6) * 10).padStart(2, '0')}`
 );
 
+function formatTime(time: string) {
+  const [h, m] = time.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const hour = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${hour}:${m.toString().padStart(2, '0')} ${period}`;
+}
+
 function nearestTimeOptionIndex(value: string): number | null {
   const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value);
   if (!match) return null;
@@ -55,6 +62,7 @@ function nearestTimeOptionIndex(value: string): number | null {
 
 function TimeField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const [open, setOpen] = useState(false);
+  const [focused, setFocused] = useState(false);
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   useEffect(() => {
@@ -68,18 +76,21 @@ function TimeField({ value, onChange }: { value: string; onChange: (value: strin
     });
   }, [open, value]);
 
+  const displayValue = !focused && nearestTimeOptionIndex(value) !== null ? formatTime(value) : value;
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Input
           type="text"
           placeholder="HH:MM"
-          value={value}
+          value={displayValue}
           onChange={(e) => onChange(e.target.value)}
-          onFocus={() => setOpen(true)}
+          onFocus={() => { setFocused(true); setOpen(true); }}
+          onBlur={() => setFocused(false)}
         />
       </PopoverTrigger>
-      <PopoverContent className="w-28 p-1 max-h-40 overflow-y-auto z-[70]" align="start">
+      <PopoverContent className="w-32 p-1 max-h-40 overflow-y-auto z-[70]" align="start">
         {TIME_OPTIONS.map((t, i) => {
           const selected = t === value;
           return (
@@ -93,7 +104,7 @@ function TimeField({ value, onChange }: { value: string; onChange: (value: strin
               )}
               onClick={() => { onChange(t); setOpen(false); }}
             >
-              {t}
+              {formatTime(t)}
             </button>
           );
         })}
@@ -621,13 +632,6 @@ export default function AdminPage() {
   const handleUpdateBooking = (e: React.FormEvent) => {
     e.preventDefault();
     submitUpdate(false);
-  };
-
-  const formatTime = (time: string) => {
-    const [h, m] = time.split(':').map(Number);
-    const period = h >= 12 ? 'PM' : 'AM';
-    const hour = h === 0 ? 12 : h > 12 ? h - 12 : h;
-    return `${hour}:${m.toString().padStart(2, '0')} ${period}`;
   };
 
   return (
