@@ -512,8 +512,7 @@ export default function AdminPage() {
     });
   };
 
-  const handleUpdateBooking = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitUpdate = async (force: boolean) => {
     if (!editingBooking) return;
 
     setIsUpdating(true);
@@ -524,11 +523,26 @@ export default function AdminPage() {
       const response = await fetch(`/api/admin/bookings/${editingBooking.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...editForm, updated_at: editingBooking.updated_at }),
+        body: JSON.stringify({
+          ...editForm,
+          updated_at: editingBooking.updated_at,
+          force_overbook: force,
+        }),
       });
 
       if (!response.ok) {
         const result = await response.json().catch(() => null);
+
+        if (response.status === 409 && result?.conflict) {
+          const summary = (result.conflicting_bookings as Booking[])
+            .map((b) => `${b.first_name} ${b.last_name} (${b.party_size}명)`)
+            .join(', ');
+          if (window.confirm(`이미 이 시간대에 다음 예약이 있습니다: ${summary}\n그래도 진행하시겠습니까?`)) {
+            await submitUpdate(true);
+          }
+          return;
+        }
+
         throw new Error(result?.error || 'Failed to update booking');
       }
 
@@ -542,6 +556,11 @@ export default function AdminPage() {
     } finally {
       setIsUpdating(false);
     }
+  };
+
+  const handleUpdateBooking = (e: React.FormEvent) => {
+    e.preventDefault();
+    submitUpdate(false);
   };
 
   const formatTime = (time: string) => {
@@ -1272,30 +1291,56 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                      <div className="space-y-2">
                        <Label>날짜</Label>
-                       <Input 
+                       <Input
                          type="date"
-                         value={editForm.booking_date?.toString() || ''} 
-                         onChange={(e) => setEditForm(prev => ({...prev, booking_date: e.target.value}))} 
-                       />
-                    </div>
-                     <div className="space-y-2">
-                       <Label>시작 시간</Label>
-                       <Input 
-                         type="time"
-                         value={editForm.slot_start || ''} 
-                         onChange={(e) => setEditForm(prev => ({...prev, slot_start: e.target.value}))} 
+                         value={editForm.booking_date?.toString() || ''}
+                         onChange={(e) => setEditForm(prev => ({...prev, booking_date: e.target.value}))}
                        />
                     </div>
                     <div className="space-y-2">
-                       <Label>종료 시간</Label>
-                       <Input 
-                         type="time"
-                         value={editForm.slot_end || ''} 
-                         onChange={(e) => setEditForm(prev => ({...prev, slot_end: e.target.value}))} 
-                       />
+                       <Label>시간대</Label>
+                       {(() => {
+                         const daySlots = editForm.booking_date
+                           ? getSlotsForDate(new Date(editForm.booking_date + 'T12:00:00'))
+                           : [];
+                         const currentStart = editForm.slot_start?.slice(0, 5) || '';
+                         const currentEnd = editForm.slot_end?.slice(0, 5) || '';
+                         const currentValue = `${currentStart}-${currentEnd}`;
+                         const hasCurrentSlot = daySlots.some(
+                           (slot) => slot.arrivalStart === currentStart && slot.slotEnd === currentEnd
+                         );
+                         return (
+                           <Select
+                             value={currentValue}
+                             onValueChange={(value) => {
+                               const [start, end] = value.split('-');
+                               setEditForm(prev => ({...prev, slot_start: start, slot_end: end}));
+                             }}
+                           >
+                             <SelectTrigger>
+                               <SelectValue placeholder="시간대 선택" />
+                             </SelectTrigger>
+                             <SelectContent>
+                               {!hasCurrentSlot && currentStart && currentEnd && (
+                                 <SelectItem value={currentValue}>
+                                   {currentStart} - {currentEnd} (정의되지 않은 시간대)
+                                 </SelectItem>
+                               )}
+                               {daySlots.map((slot) => (
+                                 <SelectItem
+                                   key={slot.id}
+                                   value={`${slot.arrivalStart}-${slot.slotEnd}`}
+                                 >
+                                   {slot.label}
+                                 </SelectItem>
+                               ))}
+                             </SelectContent>
+                           </Select>
+                         );
+                       })()}
                     </div>
                   </div>
 

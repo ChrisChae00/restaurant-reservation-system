@@ -64,6 +64,9 @@ export async function PATCH(
       // The version of the row the admin last saw. Two admins editing the same booking at
       // once would otherwise let the second save silently overwrite the first.
       updated_at,
+      // Set only after the admin has seen the conflicting-booking summary and confirmed
+      // they want to overbook the slot anyway.
+      force_overbook,
     } = body;
 
     if (status !== undefined && !VALID_STATUSES.includes(status)) {
@@ -156,6 +159,29 @@ export async function PATCH(
       updates.booking_date = targetDate;
       updates.slot_start = `${targetStart}:00`;
       updates.slot_end = `${targetEnd}:00`;
+
+      const { data: conflictingBookings, error: conflictError } = await supabase
+        .from('bookings')
+        .select('id, first_name, last_name, party_size, status')
+        .eq('booking_date', targetDate)
+        .eq('slot_start', updates.slot_start)
+        .eq('slot_end', updates.slot_end)
+        .in('status', ['pending', 'confirmed', 'completed'])
+        .neq('id', id);
+
+      if (conflictError) throw conflictError;
+
+      if (conflictingBookings && conflictingBookings.length > 0) {
+        if (!force_overbook) {
+          return NextResponse.json(
+            { conflict: true, conflicting_bookings: conflictingBookings },
+            { status: 409 }
+          );
+        }
+        updates.bypassed_slot_limit = true;
+      } else {
+        updates.bypassed_slot_limit = false;
+      }
     }
 
     if (sizeChanged) {
