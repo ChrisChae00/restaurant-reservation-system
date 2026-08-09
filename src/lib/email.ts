@@ -80,6 +80,11 @@ async function sendMailWithRetry(
       ? mailOptions.to[0]?.toString() || ''
       : '';
   
+  if (process.env.DISABLE_EMAIL_SENDING === 'true') {
+    console.log(`Email sending disabled, skipping send to ${recipientEmail}`);
+    return;
+  }
+
   // Enforce rate limiting
   if (recipientEmail) {
     await enforceRateLimit(recipientEmail);

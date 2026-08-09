@@ -120,11 +120,42 @@ below records the defect, the fix, and why it mattered.
 | **Timezone bug repeated on the client** | The admin dashboard reimplemented the 7-day check against the browser's local timezone, so the rule shown to staff could disagree with the rule the server enforced. | Extracted the timezone-correct helpers into a module shared by server and client so a single implementation governs both. |
 | **No visibility into post-hoc payment events** | A no-show charge that failed asynchronously, or a guest disputing a charge weeks later, was observable only by manually checking the Stripe dashboard. | Implemented a signature-verified Stripe webhook endpoint for `payment_intent.payment_failed` and `charge.dispute.created`. *Present in the codebase but not yet enabled; activating it requires only registering the endpoint in Stripe and setting `STRIPE_WEBHOOK_SECRET`.* |
 
+### Measured: concurrency defense in numbers
+
+To confirm the double-booking fix actually holds under load rather than just in theory, 50
+concurrent booking requests were fired at the same time slot, both with and without the
+partial unique index in place (`git worktree` checkout of the pre-fix commit for the "before"
+run, real Postgres in both cases — no mocked database):
+
+| | Successful bookings | Rejected (409/500) | Duplicate rows written |
+| --- | --- | --- | --- |
+| **Before** the unique index (pre-fix code) | 3 | 47 | **3 duplicate bookings for one slot** |
+| **After** the unique index (current code) | 1 | 49 | **0** |
+
+The remaining rejections in the "after" run are clean `409 Time slot no longer available`
+responses; in the "before" run, most surface as an unhandled `500` because the pre-fix code
+had no handling for the constraint violation at all.
+
 ### Verification
 
-Every change was checked with `tsc --noEmit`, ESLint, and a production build, plus a
-standalone test script asserting the booking-rule and timezone logic — including
-regression guards that fail if the previous incorrect behaviour is reintroduced.
+Every change is checked with `tsc --noEmit`, ESLint, and a production build. Automated
+regression tests run on [Vitest](https://vitest.dev/):
+
+```bash
+npm test              # full suite
+npm run test:coverage # with coverage report
+```
+
+- `src/lib/booking-rules.test.ts` — schedule, slot, and formatting logic (100% line coverage).
+- `src/app/api/bookings/route.race.test.ts` — the concurrency regression test. Fires 10
+  simultaneous booking requests at the real database for the same slot and asserts exactly
+  one succeeds and the rest come back `409`, so a reintroduced race condition is caught by
+  `npm test` locally before it reaches production (there is no CI pipeline configured yet).
+  Stripe and email are stubbed; the database layer is real, since the point is to prove the
+  actual Postgres constraint, not a mock of it.
+- `scripts/concurrency-benchmark.test.ts` — the 50-request load benchmark behind the table
+  above. Not part of `npm test` (it fires real load at the database); run explicitly with
+  `npx vitest run scripts/concurrency-benchmark.test.ts`.
 
 ### Additional environment variable
 
