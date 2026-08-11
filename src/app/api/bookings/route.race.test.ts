@@ -18,7 +18,7 @@ vi.mock('@/lib/email', () => ({
   sendReservationReceivedEmail: vi.fn().mockResolvedValue(undefined),
 }));
 
-const CONCURRENCY = 10;
+const CONCURRENCY = 50;
 const TEST_EMAIL_DOMAIN = '@racetest.example';
 
 // Any open weekday at least 8 days out clears both the past-date and the

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { describe, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { getSlotsForDate, isRestaurantOpen } from '@/lib/booking-rules';
 import { createServerClient } from '@/lib/supabase/server';
 
@@ -105,6 +105,12 @@ describe('concurrency benchmark', () => {
     console.log('status tally:', Object.fromEntries(tally));
     console.log(`rows actually inserted in DB: ${count}`);
     console.log('=====================================\n');
+
+    if (!LEGACY) {
+      expect(tally.get(200)).toBe(1);
+      expect(tally.get(409)).toBe(CONCURRENCY - 1);
+      expect(count).toBe(1);
+    }
 
     await cleanup(supabase);
   }, 60_000);
