@@ -77,14 +77,41 @@ adminRouter.post('/bookings/:id/charge', async (req, res) => {
     ? Math.min(Math.round(customAmount * 100), NO_SHOW_FEE_PER_PERSON * booking.party_size)
     : NO_SHOW_FEE_PER_PERSON * chargeGuestCount;
   const idempotencyKey = `noshow-${bookingId}-${amountCents}`;
+  const triggeredBy = req.header('x-admin-user') ?? 'admin';
 
-  const { attempt, created } = await insertChargeAttempt({
+  let { attempt, created } = await insertChargeAttempt({
     bookingId,
     idempotencyKey,
     amountCents,
     guestCount: chargeGuestCount,
-    triggeredBy: req.header('x-admin-user') ?? 'admin',
+    triggeredBy,
   });
+
+  // 'failed' here means classifyChargeFailure already called it permanent (or retries were
+  // exhausted) — the charge worker will never touch this row again. A second POST with the
+  // same booking+amount is an admin deliberately asking to try again (e.g. after the guest
+  // provided a new card), not a duplicate click, so give it a fresh row and a fresh Stripe
+  // idempotency key (backend/src/jobs/charge.worker.ts derives that from attempt_count on
+  // the new row) instead of replaying the dead attempt forever.
+  if (!created && attempt.status === 'failed') {
+    const { count, error: countError } = await db()
+      .from('charge_attempts')
+      .select('id', { count: 'exact', head: true })
+      .like('idempotency_key', `${idempotencyKey}%`);
+    if (countError) {
+      res.status(500).json({ error: countError.message });
+      return;
+    }
+    const retry = await insertChargeAttempt({
+      bookingId,
+      idempotencyKey: `${idempotencyKey}-manual${count ?? 1}`,
+      amountCents,
+      guestCount: chargeGuestCount,
+      triggeredBy,
+    });
+    attempt = retry.attempt;
+    created = retry.created;
+  }
 
   if (!created) {
     const response = describeExistingAttempt(attempt);
@@ -95,7 +122,7 @@ adminRouter.post('/bookings/:id/charge', async (req, res) => {
   await chargeQueue.add(
     'charge',
     { chargeAttemptId: attempt.id, bookingId },
-    { jobId: idempotencyKey }
+    { jobId: attempt.idempotency_key }
   );
 
   logger.info({ chargeAttemptId: attempt.id, bookingId }, 'Charge attempt queued');

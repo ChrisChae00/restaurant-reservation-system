@@ -34,14 +34,27 @@ app.get('/health', async (_req, res) => {
 });
 
 async function main() {
-  startChargeWorker();
-  startEmailWorker();
-  startWebhookWorker();
-  await startScheduler();
+  const chargeWorker = startChargeWorker();
+  const emailWorker = startEmailWorker();
+  const webhookWorker = startWebhookWorker();
+  const schedulerWorker = await startScheduler();
 
-  app.listen(env.PORT, () => {
+  const server = app.listen(env.PORT, () => {
     logger.info({ port: env.PORT }, 'Backend listening');
   });
+
+  // Without this, a deploy's SIGTERM kills the process mid-Stripe-call: the in-flight
+  // charge attempt is left stuck in 'processing' until the scheduler's stuck-attempt
+  // recovery (jobs/scheduler.ts) notices it up to an hour later. worker.close() waits for
+  // whatever job is currently running to finish before letting the process exit.
+  async function shutdown(signal: string) {
+    logger.info({ signal }, 'Shutting down');
+    server.close();
+    await Promise.all([chargeWorker.close(), emailWorker.close(), webhookWorker.close(), schedulerWorker.close()]);
+    process.exit(0);
+  }
+  process.on('SIGTERM', () => void shutdown('SIGTERM'));
+  process.on('SIGINT', () => void shutdown('SIGINT'));
 }
 
 main().catch((error) => {

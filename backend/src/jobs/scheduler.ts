@@ -87,7 +87,17 @@ async function recoverStuckChargeAttempts() {
     await chargeQueue.add(
       'recover',
       { chargeAttemptId: attempt.id, bookingId: attempt.booking_id },
-      { jobId: `${attempt.idempotency_key}-recover-${Date.now()}` }
+      {
+        // Deterministic, not Date.now()-suffixed: this job runs every 10 minutes and would
+        // otherwise queue a fresh recovery job for the same stuck row on every single scan
+        // until it's finally picked up, defeating BullMQ's own jobId dedup entirely. One
+        // recovery job per attempt_count -- once the worker actually runs it, attempt_count
+        // increments (charge.worker.ts) and the row's updated_at refreshes, so it drops out
+        // of this query and stops being re-queued.
+        jobId: `${attempt.idempotency_key}-recover-${attempt.attempt_count}`,
+        removeOnComplete: true,
+        removeOnFail: true,
+      }
     );
   }
 }

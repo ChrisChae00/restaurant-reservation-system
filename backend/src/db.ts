@@ -47,11 +47,26 @@ export async function insertChargeAttempt(input: {
     throw insertError;
   }
 
-  const { data: existing, error: fetchError } = await supabase
-    .from('charge_attempts')
-    .select()
-    .eq('idempotency_key', input.idempotencyKey)
-    .single();
+  // Two unique constraints can produce a 23505 here: idempotency_key (same booking+amount
+  // requested twice) or idx_charge_attempts_one_active_per_booking (same booking, two
+  // DIFFERENT amounts racing -- see the migration that added it). Either way the caller
+  // gets back whatever row is currently active for this booking.
+  const onActivePerBooking = insertError.message?.includes('idx_charge_attempts_one_active_per_booking');
+
+  const { data: existing, error: fetchError } = onActivePerBooking
+    ? await supabase
+        .from('charge_attempts')
+        .select()
+        .eq('booking_id', input.bookingId)
+        .neq('status', 'failed')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+    : await supabase
+        .from('charge_attempts')
+        .select()
+        .eq('idempotency_key', input.idempotencyKey)
+        .single();
 
   if (fetchError || !existing) {
     throw fetchError ?? new Error('Charge attempt insert conflicted but existing row was not found');

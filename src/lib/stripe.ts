@@ -138,7 +138,8 @@ export async function chargeNoShowFee(
   paymentMethodId: string,
   partySize: number,
   bookingId: string,
-  customAmountCents?: number
+  customAmountCents?: number,
+  idempotencySuffix?: string
 ): Promise<Stripe.PaymentIntent> {
   const stripe = getStripe();
   const amount = customAmountCents ?? (NO_SHOW_FEE_PER_PERSON * partySize);
@@ -165,7 +166,13 @@ export async function chargeNoShowFee(
       // A retry, a double-click, or a second attempt after a failed status write returns
       // the original PaymentIntent instead of charging the guest again. The amount is part
       // of the key so a deliberate re-charge at a different amount is still possible.
-      idempotencyKey: `noshow-${bookingId}-${amount}`,
+      //
+      // idempotencySuffix (the queued backend's charge worker passes its attempt number)
+      // is what makes a genuine automatic retry actually re-attempt the charge instead of
+      // Stripe replaying the first attempt's response for 24h. Callers that never retry
+      // (this file's only other caller, the synchronous admin route) omit it and keep the
+      // original key unchanged.
+      idempotencyKey: idempotencySuffix ? `noshow-${bookingId}-${amount}-${idempotencySuffix}` : `noshow-${bookingId}-${amount}`,
     }
   );
 

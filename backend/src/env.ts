@@ -18,7 +18,13 @@ const envSchema = z.object({
 
   GMAIL_USER: z.string().min(1),
   GMAIL_APP_PASSWORD: z.string().min(1),
-  DISABLE_EMAIL_SENDING: z.coerce.boolean().default(false),
+  // z.coerce.boolean() reads any non-empty string as true, so DISABLE_EMAIL_SENDING=false
+  // in a real .env would silently disable every admin alert. Only the literal string
+  // 'true' opts in.
+  DISABLE_EMAIL_SENDING: z
+    .string()
+    .optional()
+    .transform((v) => v === 'true'),
 
   BACKEND_INTERNAL_SECRET: z.string().min(16, 'must be at least 16 characters'),
 

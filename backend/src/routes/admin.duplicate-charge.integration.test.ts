@@ -22,7 +22,10 @@ if (testKey && !testKey.startsWith('sk_test_') && !testKey.startsWith('rk_test_'
 
 async function backendReachable(): Promise<boolean> {
   try {
-    const res = await fetch(`${BACKEND_URL}/health`);
+    // Without a bounded timeout, an environment where the fetch itself hangs (no backend,
+    // network egress blocked, etc.) blows past vitest's 10s default hook timeout and fails
+    // the whole suite instead of skipping it cleanly.
+    const res = await fetch(`${BACKEND_URL}/health`, { signal: AbortSignal.timeout(2000) });
     return res.ok;
   } catch {
     return false;
@@ -47,10 +50,12 @@ describe.skipIf(!hasCreds)('duplicate charge defense', () => {
   });
   afterAll(async () => cleanup(supabase));
 
-  it('creates exactly one charge_attempts row and one Stripe charge under concurrent requests', async () => {
+  it('creates exactly one charge_attempts row and one Stripe charge under concurrent requests', async (ctx) => {
+    // ctx.skip() marks the test skipped (not passed) in vitest's own accounting, unlike a
+    // plain `return` after a console.warn -- a bare return here was reporting "1 passed"
+    // for a test that never actually verified the duplicate-charge defense it's named for.
     if (skipReason) {
-      console.warn(`Skipping: ${skipReason}`);
-      return;
+      ctx.skip(skipReason);
     }
 
     const customer = await stripe.customers.create({ email: `dup-${Date.now()}${TEST_EMAIL_DOMAIN}` });

@@ -48,6 +48,144 @@
 3. Railway/Render 배포 (계획 Phase 11)
 4. `docs/reliability-report.md`의 레주메 불릿 최종 확정 (지금 초안 있음, 배포 후 수치 안 바뀌면 그대로 써도 됨)
 
+## PR #5 리뷰 대응 — Before/After (2026-08-12)
+
+`/pr-review-toolkit:review-pr`로 PR #5 전체 코드 직접 추적(백엔드 11개 파일 + 마이그레이션 +
+프론트 프록시 + 테스트 실행) 후 발견한 Critical 3건 + Important 5건 전부 수정. 각 항목: 문제였던
+이유(재현/실측) → 고친 방향과 그게 맞는 이유. 파일별 상세 근거는 커밋 diff 참고, 여기는 왜만.
+
+### 1. `stripe`가 devDependencies (Critical)
+
+**Before**: `backend/package.json`에 `stripe`가 `devDependencies`에 있었음. `Dockerfile:9`는
+`npm install --omit=dev`. 실측: `node -e "console.log(require('./package.json').dependencies.stripe)"`
+→ `undefined`. 런타임 경로(`charge.worker.ts`, `webhook.worker.ts`, `webhooks.ts`)가 전부
+`@/lib/stripe`를 통해 `stripe` 패키지를 직접 import하므로, 프로덕션 컨테이너는 100% 부팅
+실패(`Cannot find module 'stripe'`)였을 것. 로컬 `npm run dev`는 루트 `node_modules`에 있는
+`stripe`(devDep)를 그대로 resolve해서 증상이 로컬에서는 절대 안 보임 — Docker 빌드로만 드러나는
+클래스의 버그.
+
+**After**: `dependencies`로 이동. 이 방향이 맞는 이유: 이 패키지는 "개발 중에만 필요한 도구"가
+아니라 프로덕션 요청 경로에서 매번 실행되는 코드가 import하는 런타임 의존성 — devDependencies의
+정의(빌드/테스트 전용)에 애초에 안 맞았음. `npm install`로 lockfile도 갱신, `tsc --noEmit` 클린
+확인.
+
+### 2. `DISABLE_EMAIL_SENDING` boolean 파싱 버그 (Critical)
+
+**Before**: `z.coerce.boolean()` = `Boolean(문자열)`이라 빈 문자열 외 전부 true. 실측:
+`z.coerce.boolean().parse('false')` → `true`, `.parse('0')` → `true`. `.env`에
+`DISABLE_EMAIL_SENDING=false`라고 명시적으로 적어도 이메일이 꺼짐. 영향받는 템플릿 2개
+(`admin-charge-failed`, `admin-dispute-opened`) 전부 — 결제 실패나 분쟁이 발생해도 관리자에게
+알림이 안 가고, 에러도 안 나서 아무도 못 알아챔(silent failure).
+
+**After**: `z.string().optional().transform(v => v === 'true')`로 교체. 리터럴 문자열 `'true'`만
+true로 인정, 그 외(`'false'`, `'0'`, undefined)는 전부 false. 검증: `parse('false')` → `false`,
+`parse('true')` → `true`, `parse(undefined)` → `false`(기존 `.default(false)`와 동일 동작 유지).
+이 방향이 맞는 이유: env var는 사람이 손으로 적는 텍스트라 "명시적으로 쓴 값만 신뢰"가 안전한
+기본값 — 애매한 coercion 규칙에 맡기면 오타 하나가 알림 전체를 죽인다.
+
+### 3. 재시도가 실제로 재청구 안 됨 (Critical)
+
+**Before**: `chargeNoShowFee()`(`src/lib/stripe.ts`)가 Stripe idempotency key를
+`noshow-{bookingId}-{amount}`로 고정 생성. `charge.worker.ts`의 재시도(`handleChargeError`)는
+같은 `chargeAttemptId`로 같은 job을 다시 실행 → 같은 booking+amount → **같은 Stripe key**.
+Stripe idempotency key는 24시간 동안 최초 응답(실패 포함)을 그대로 재생하는 게 스펙 동작 —
+즉 transient 재시도 3회(1분/5분/1시간)와 insufficient_funds 재시도(24시간)가 설계상 존재하는
+재시도 슬롯 4개 중 사실상 전부, Stripe에 도달하기 전에 죽는 네트워크 에러(`ECONNRESET` 등)를
+제외하고는 **실제로 카드에 아무 일도 안 일어남**. "3중 방어" 문서화 주장과 달리 재시도 로직은
+죽은 코드에 가까웠음.
+
+**After**: `chargeNoShowFee()`에 선택적 `idempotencySuffix` 파라미터 추가, 워커가 매 시도마다
+증가하는 `attempt_count`를 넘겨서 Stripe key가 `noshow-{bookingId}-{amount}-{attemptNumber}`로
+매번 달라지게 함. 동기 경로(`charge-penalty/route.ts`, 재시도 없음)는 인자를 안 넘기므로
+기존 키 형식 그대로 — 회귀 없음. `charge_attempts.idempotency_key`(DB UNIQUE, 앱 레벨
+중복 방어)는 그대로 booking+amount 고정 유지 — "이 청구 시도"를 식별하는 키와 "이번 Stripe
+호출"을 식별하는 키는 서로 다른 레이어라 분리하는 게 맞음: 전자는 안 바뀌어야 진짜 중복 요청을
+잡고, 후자는 매 재시도마다 바뀌어야 재시도가 의미를 가짐.
+
+### 4. Permanent 실패 후 UI에서 영구 재청구 불가 (Important)
+
+**Before**: `idempotencyKey`가 booking+amount로 고정이라, 관리자가 실패한 청구를 다시
+누르면 `insertChargeAttempt`가 UNIQUE 충돌 → `describeExistingAttempt`가 새 job 없이 기존
+`failed` 행을 그대로 반환. 새 카드로 다시 시도할 방법이 UI상 전혀 없었음(DB 직접 수정 외에는).
+
+**After**: `admin.ts`에서 기존 attempt가 `failed`(=영구 실패, 워커가 더 이상 자동 재시도
+안 하는 상태) 상태일 때만 `${idempotencyKey}-manual{n}` 키로 새 행을 만들도록 분기 추가.
+`n`은 같은 prefix를 가진 기존 행 개수로 계산. 동시에 두 요청이 같은 `n`을 계산해도
+`insertChargeAttempt`의 기존 UNIQUE-충돌-후-재조회 로직이 그대로 안전망이 됨(race-safe,
+새 코드 아님, 기존 패턴 재사용). `requires_action`은 3DS 등 고객 조치가 필요한 상태라 단순
+재청구 대상이 아니므로 의도적으로 제외.
+
+### 5. 통합 테스트 거짓 양성 + 훅 타임아웃 (Important)
+
+**Before**: 백엔드 미기동 시 `console.warn` + `return` → vitest는 이걸 "1 passed"로 집계.
+이중청구 방어라는 핵심 주장이 실제로는 검증 안 된 채 초록불. 게다가 `fetch`에 타임아웃이
+없어서 네트워크 접근이 막힌 환경에서는 훅 자체가 10초 타임아웃으로 스위트 전체가 FAIL.
+실측: 수정 전 `npm test` → `FAIL ... Hook timed out in 10000ms`, 전체 실행 11.61초.
+
+**After**: `AbortSignal.timeout(2000)`로 헬스체크에 상한, `ctx.skip(skipReason)`으로 진짜
+skip 처리(vitest 자체 카운트에 잡힘). 실측: 수정 후 `npm test` → `12 passed | 1 skipped`,
+전체 실행 0.95초(12배 이상 단축, 네트워크 대기가 사라졌으므로). 이 방향이 맞는 이유: "테스트가
+초록불"과 "테스트가 실제로 뭔가 검증했다"는 다른 얘기 — 전자만 만족시키는 코드는 있으나 마나.
+
+### 6. Stuck-복구 job이 BullMQ dedup을 무력화 (Important)
+
+**Before**: `scheduler.ts`의 `recoverStuckChargeAttempts`가
+`jobId: '${idempotency_key}-recover-${Date.now()}'`. 이 스케줄러는 10분마다 실행되고, 복구
+대상 기준은 "1시간 이상 업데이트 없음"이라 최악의 경우 같은 stuck 행에 대해 최대 6개의
+서로 다른 jobId(매 스캔마다 새 `Date.now()`)가 큐에 쌓임 — jobId 기반 dedup을 설계자가
+직접 무력화한 코드.
+
+**After**: `jobId`를 `${idempotency_key}-recover-${attempt.attempt_count}`로 결정론화 —
+같은 행이 같은 `attempt_count`인 동안은 여러 번 스캔돼도 항상 같은 jobId라 BullMQ가 자동
+dedup. 실제로 워커가 집어서 실행하면 `attempt_count`가 올라가고 `updated_at`도 갱신되므로
+스캔 조건(`updated_at < cutoff`)에서 자연히 빠짐 — 별도 정리 로직 없이 저절로 멈춤.
+`removeOnComplete`/`removeOnFail` 추가해서 jobId 재사용 시 "이미 완료된 job" 충돌도 방지.
+
+### 7. 다른 금액 동시 요청 시 이중 청구 경로 (Important)
+
+**Before**: idempotency key에 `amountCents`가 포함되므로, 같은 예약에 대해 금액이 다른
+동시 요청 2건은 서로 다른 키 → 둘 다 UNIQUE 통과 → 둘 다 `booking.status !== 'noshow_charged'`
+read-then-write 가드 통과 가능(둘 다 아직 안 charged인 시점에 읽음) → `charge_attempts` 행
+2개, Stripe 실제 청구 2건 가능. 마이그레이션 주석은 UNIQUE가 "중복 청구 방어"라 서술했지만
+**동일 금액에 한해서만** 참이었음 — 앱 레벨 read-then-write 가드는 원천적으로 이 레이스를
+못 막음(DB 트랜잭션 없이 두 프로세스가 동시에 읽으면 항상 뚫림).
+
+**After**: 새 마이그레이션(`20260812000300_charge_attempts_one_active_per_booking.sql`)으로
+`booking_id`에 partial UNIQUE INDEX(`WHERE status != 'failed'`) 추가 — 한 booking당
+active/resolved 행이 항상 최대 1개만 존재하도록 DB가 직접 강제. `failed`는 제외(4번 항목의
+수동 재시도 흐름과 호환). `db.ts`의 `insertChargeAttempt`가 이 새 제약의 충돌도 구분해서
+처리(에러 메시지로 어느 제약인지 판별 후 적절히 재조회). 이 방향이 맞는 이유: 애플리케이션
+레벨 read-then-write 체크는 원리적으로 레이스를 못 막는다 — DB 제약만이 진짜 원자적 보장이고,
+이건 그 원칙을 따른 것. Supabase에 수동 적용 완료(사용자 확인).
+
+### 8. Graceful shutdown 부재 (Important)
+
+**Before**: `index.ts`에 SIGTERM/SIGINT 핸들러 없음. 배포 시 플랫폼이 SIGTERM을 보내면
+Node가 즉시 종료 — 진행 중이던 Stripe 호출이 그 자리에서 잘림. 이후 최대 1시간 동안(6번
+항목의 stuck 복구 주기 기준 threshold) `processing` 상태로 매달려 있다가 복구됨. Grace
+period 사실상 0초.
+
+**After**: `SIGTERM`/`SIGINT` 핸들러 추가, `chargeWorker/emailWorker/webhookWorker/
+schedulerWorker` 전부 `worker.close()`(BullMQ가 진행 중인 job이 끝날 때까지 대기 후
+종료) 호출 후 프로세스 종료. 이 방향이 맞는 이유: 결제 코드 경로는 "언제 죽어도 괜찮은"
+코드가 아님 — 배포가 매일 여러 번 일어날 수 있는데, 그때마다 진행 중인 Stripe 호출이
+잘릴 위험을 감수할 이유가 없고, `worker.close()` 몇 줄로 없앨 수 있는 위험이었음.
+
+### 검증
+
+- `backend`: `tsc --noEmit` 클린, `npm test` → 12 passed | 1 skipped (변경 전: 1 suite
+  FAIL, hook timeout)
+- root: `tsc --noEmit` 클린(암묵적으로 `src/lib/stripe.ts` 시그니처 변경 영향 확인),
+  `npm test` → 30 passed | 1 skipped
+- `backend/package-lock.json` 갱신 확인(`stripe` deps 이동 반영)
+
+### 안 한 것 (스코프 밖, 사용자 확인 필요)
+
+- 새 마이그레이션(`20260812000300`) — 사용자가 Supabase에 수동 적용 완료
+- 6번 항목: `processing` 상태에서 실제로 아직 살아있는 job과 stuck 복구 job이 동시에
+  도는 이론적 레이스(1시간 이상 걸리는 Stripe 호출은 사실상 없다는 전제로 리스크 낮음)는
+  건드리지 않음 — jobId dedup 버그만 고침, 근본적인 "복구 대상 판정" 로직 자체는 그대로
+
 ## 함정 주의 (반복 실수 방지)
 
 - **Stripe 매직 카드 토큰 순서 중요**: `pm_card_visa`는 attach 후 반드시 `usage:'off_session'` SetupIntent를 confirm까지 거쳐야 나중에 off-session 청구가 성공함(안 그러면 insufficient_funds로 거절됨 — Radar가 "미인증 첫 사용"으로 봄). 반대로 `pm_card_visa_chargeDeclinedInsufficientFunds` 같은 decline 토큰은 **attach 자체도 거절됨** — SetupIntent도 attach도 건너뛰고 토큰 문자열을 그대로 `payment_method_id`로 써야 함. `scripts/charge-pipeline-benchmark.test.ts`의 `createTestCustomerWithCard` vs `createDeclineTestCustomer` 참고.

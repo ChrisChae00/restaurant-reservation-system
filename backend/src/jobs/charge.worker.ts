@@ -38,10 +38,11 @@ export function startChargeWorker() {
       }
 
       const booking = await getBooking(attempt.booking_id);
+      const attemptNumber = attempt.attempt_count + 1;
 
       await updateChargeAttempt(attempt.id, {
         status: 'processing',
-        attempt_count: attempt.attempt_count + 1,
+        attempt_count: attemptNumber,
       });
 
       let paymentIntent;
@@ -51,7 +52,12 @@ export function startChargeWorker() {
           booking.stripe_payment_method_id,
           attempt.guest_count,
           booking.id,
-          attempt.amount_cents
+          attempt.amount_cents,
+          // Distinct Stripe idempotency key per attempt number — without this, a retry
+          // after a transient failure sends the exact same key Stripe already has a
+          // response cached for, so Stripe replays the original failure and no charge is
+          // ever actually reattempted. See docs/HANDOFF.md for the reasoning.
+          String(attemptNumber)
         );
       } catch (error) {
         await handleChargeError(attempt, error);
