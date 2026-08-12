@@ -463,10 +463,37 @@ export default function AdminPage() {
     setChargeCustomAmount('');
   };
 
+  // Polls the backend charge pipeline's status for a booking (via the /api/admin/charges
+  // proxy) until the attempt reaches a terminal state or the timeout elapses. Only used
+  // when the charge-penalty route responds 202 (CHARGE_VIA_BACKEND=true) -- the legacy
+  // synchronous path already returns a final result directly.
+  const pollChargeAttempt = async (
+    bookingId: string,
+    chargeAttemptId: string,
+    timeoutMs = 30000
+  ): Promise<{ status: string; amount_cents: number; guest_count: number; stripe_error_message: string | null } | null> => {
+    const terminal = new Set(['succeeded', 'failed', 'requires_action', 'disputed', 'refunded']);
+    const deadline = Date.now() + timeoutMs;
+
+    while (Date.now() < deadline) {
+      const res = await fetch(`/api/admin/charges/${bookingId}`);
+      if (res.ok) {
+        const data = await res.json();
+        const attempt = data.attempts?.find((a: { id: string }) => a.id === chargeAttemptId);
+        if (attempt && terminal.has(attempt.status)) {
+          return attempt;
+        }
+      }
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+    return null; // still processing when we gave up polling -- not a failure
+  };
+
   const handleChargePenalty = async () => {
     if (!chargeModalBooking) return;
 
-    setChargingId(chargeModalBooking.id);
+    const bookingId = chargeModalBooking.id;
+    setChargingId(bookingId);
     setChargeError(null);
     setChargeSuccess(null);
     handleCloseChargeModal();
@@ -475,8 +502,8 @@ export default function AdminPage() {
       const response = await fetch('/api/admin/charge-penalty', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          bookingId: chargeModalBooking.id,
+        body: JSON.stringify({
+          bookingId,
           guestCount: chargeGuestCount,
           customAmount: useCustomAmount ? parseFloat(chargeCustomAmount) : undefined,
         }),
@@ -492,7 +519,22 @@ export default function AdminPage() {
         );
       }
 
-      setChargeSuccess(`$${result.chargedAmount} CAD 청구 완료 (${result.chargedGuestCount}명)`);
+      if (response.status === 202 && result.chargeAttemptId) {
+        // Queued on the backend -- wait for it to settle instead of trusting an
+        // in-flight status as a final answer.
+        setChargeSuccess('청구 처리 중...');
+        const attempt = await pollChargeAttempt(bookingId, result.chargeAttemptId);
+        if (attempt?.status === 'succeeded') {
+          setChargeSuccess(`$${(attempt.amount_cents / 100).toFixed(2)} CAD 청구 완료 (${attempt.guest_count}명)`);
+        } else if (attempt) {
+          setChargeError(`위약금 청구 실패: ${attempt.stripe_error_message ?? attempt.status}`);
+        } else {
+          setChargeSuccess('청구 처리 중입니다. 잠시 후 예약 상태를 확인해주세요.');
+        }
+      } else {
+        setChargeSuccess(`$${result.chargedAmount} CAD 청구 완료 (${result.chargedGuestCount}명)`);
+      }
+
       fetchBookings();
     } catch (error) {
       console.error('Charge error:', error);
