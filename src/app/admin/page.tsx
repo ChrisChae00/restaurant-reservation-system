@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import type { Booking, BookingStatus } from '@/types/booking';
-import { getSlotsForDate, formatTimeRange, MAX_CAPACITY } from '@/lib/booking-rules';
+import { getSlotsForDate, formatTimeRange } from '@/lib/booking-rules';
 import { isWithin7Days as isDateWithin7Days } from '@/lib/restaurant-time';
 
 
@@ -134,7 +134,6 @@ export default function AdminPage() {
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
   const [editForm, setEditForm] = useState<Partial<Booking>>({});
   const [isUpdating, setIsUpdating] = useState(false);
-  const [editSlotOthersTotal, setEditSlotOthersTotal] = useState<number | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -253,47 +252,6 @@ export default function AdminPage() {
       fetchBlockedSlots();
     }
   }, [dateFilter, statusFilter, activeTab]);
-
-  // The capacity warning in the edit modal needs an accurate count for the target
-  // slot, which may be on a date not currently loaded into `bookings` (e.g. editing
-  // from the 승인 대기 card in Quick View, whose date rarely matches the list filter).
-  useEffect(() => {
-    if (!editingBooking) {
-      setEditSlotOthersTotal(null);
-      return;
-    }
-    const targetDate = editForm.booking_date ?? editingBooking.booking_date;
-    const targetStart = (editForm.slot_start ?? editingBooking.slot_start)?.slice(0, 5);
-    const targetEnd = (editForm.slot_end ?? editingBooking.slot_end)?.slice(0, 5);
-    if (!targetDate || !targetStart || !targetEnd) {
-      setEditSlotOthersTotal(null);
-      return;
-    }
-
-    let cancelled = false;
-    (async () => {
-      try {
-        const response = await fetch(`/api/bookings?date=${targetDate}`);
-        const data = await response.json();
-        const total = ((data.bookings || []) as Booking[])
-          .filter((b) =>
-            b.id !== editingBooking.id &&
-            b.slot_start?.slice(0, 5) === targetStart &&
-            b.slot_end?.slice(0, 5) === targetEnd &&
-            ['pending', 'confirmed', 'completed'].includes(b.status)
-          )
-          .reduce((sum, b) => sum + b.party_size, 0);
-        if (!cancelled) setEditSlotOthersTotal(total);
-      } catch (error) {
-        console.error('Failed to fetch slot occupancy:', error);
-        if (!cancelled) setEditSlotOthersTotal(null);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [editingBooking, editForm.booking_date, editForm.slot_start, editForm.slot_end]);
 
   useEffect(() => {
     if (chargeSuccess || chargeError) {
@@ -651,6 +609,18 @@ export default function AdminPage() {
             .map((b) => `${b.first_name} ${b.last_name} (${b.party_size}명)`)
             .join(', ');
           if (window.confirm(`이미 이 시간대에 다음 예약이 있습니다: ${summary}\n그래도 진행하시겠습니까?`)) {
+            await submitUpdate(true);
+          }
+          return;
+        }
+
+        // The server counts everyone seated at an overlapping time, so this total can be
+        // higher than what the edited slot alone holds.
+        if (response.status === 409 && result?.capacityExceeded) {
+          const total = result.currentGuests + result.requested;
+          if (window.confirm(
+            `이 시간대 총 인원이 ${total}명으로 정원(${result.max}명)을 초과합니다.\n그래도 저장하시겠습니까?`
+          )) {
             await submitUpdate(true);
           }
           return;
@@ -1430,18 +1400,6 @@ export default function AdminPage() {
                          value={editForm.party_size || ''}
                          onChange={(e) => setEditForm(prev => ({...prev, party_size: parseInt(e.target.value) || 0}))}
                        />
-                       {editSlotOthersTotal !== null && (() => {
-                         const total = editSlotOthersTotal + (editForm.party_size || 0);
-                         if (total > MAX_CAPACITY) {
-                           return (
-                             <p className="text-xs text-amber-400 flex items-center gap-1">
-                               <AlertTriangle className="h-3 w-3" />
-                               이 시간대 총 인원이 {total}명으로 정원({MAX_CAPACITY}명)을 초과합니다. 저장은 가능합니다.
-                             </p>
-                           );
-                         }
-                         return null;
-                       })()}
                     </div>
 
                     <div className="space-y-2">

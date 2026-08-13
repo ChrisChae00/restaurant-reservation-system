@@ -165,4 +165,40 @@ describe.skipIf(!process.env.SUPABASE_SERVICE_ROLE_KEY)('POST /api/bookings inte
     const res = await POST(req);
     expect(res.status).toBe(200);
   });
+
+  // Guards the one-team-per-slot rule against the capacity work: seatings that share
+  // wall-clock time are counted together for capacity, but they are still separate
+  // slots and must both stay bookable. Conflating the two would take the mid seating
+  // off sale as soon as the early one sold.
+  it('still allows booking a slot that overlaps an already-booked one', async () => {
+    const { POST } = await import('./route');
+    const { date, slots } = findTestSlot('weekday');
+    const bookingDate = toDateOnlyString(date);
+    const early = slots.find((s) => s.type === 'early')!;
+    const mid = slots.find((s) => s.type === 'mid')!;
+
+    expect(early.slotEnd > mid.arrivalStart).toBe(true); // they really do overlap
+
+    const book = (label: string, slot: typeof early) =>
+      POST(
+        new NextRequest('http://localhost/api/bookings', {
+          method: 'POST',
+          body: JSON.stringify({
+            firstName: 'Test',
+            lastName: label,
+            email: `${label}${TEST_EMAIL_DOMAIN}`,
+            phone: '5145551234',
+            partySize: 8,
+            bookingDate,
+            slotId: slot.id,
+            slotStart: slot.arrivalStart,
+            slotEnd: slot.slotEnd,
+            setupIntentId: 'seti_test',
+          }),
+        })
+      );
+
+    expect((await book('overlapearly', early)).status).toBe(200);
+    expect((await book('overlapmid', mid)).status).toBe(200);
+  });
 });

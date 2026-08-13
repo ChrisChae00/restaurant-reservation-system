@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { sendConfirmationEmail, sendCancellationEmail } from '@/lib/email';
 import { requireAuth } from '@/lib/auth';
+import { getConcurrentGuests } from '@/lib/availability';
+import { MAX_CAPACITY } from '@/lib/booking-rules';
 import type { BookingStatus } from '@/types/booking';
 
 // Postgres unique-violation, also raised here by the one-team-per-slot index when an
@@ -137,12 +139,15 @@ export async function PATCH(
     const endChanged = slot_end !== undefined && slot_end !== currentBooking.slot_end;
     const sizeChanged = party_size !== undefined && party_size !== currentBooking.party_size;
 
-    if (dateChanged || startChanged || endChanged) {
-      const targetDate = booking_date ?? currentBooking.booking_date;
-      // slot_start/slot_end are stored as HH:MM:SS; the slot definitions use HH:MM.
-      const targetStart = (slot_start ?? currentBooking.slot_start).slice(0, 5);
-      const targetEnd = (slot_end ?? currentBooking.slot_end).slice(0, 5);
+    // Where this booking will sit once saved — unchanged fields keep their current value.
+    // Needed beyond the time-change branch because a party-size-only edit still has to be
+    // weighed against whoever is already seated in the booking's existing window.
+    const targetDate = booking_date ?? currentBooking.booking_date;
+    // slot_start/slot_end are stored as HH:MM:SS; the slot definitions use HH:MM.
+    const targetStart = (slot_start ?? currentBooking.slot_start).slice(0, 5);
+    const targetEnd = (slot_end ?? currentBooking.slot_end).slice(0, 5);
 
+    if (dateChanged || startChanged || endChanged) {
       const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
       const validTimes = TIME_RE.test(targetStart) && TIME_RE.test(targetEnd);
       const validRange = targetEnd === '00:00' || targetStart < targetEnd;
@@ -185,11 +190,36 @@ export async function PATCH(
     if (sizeChanged) {
       // Admins may raise a booking above the public 7-14 range (e.g. a guest's
       // group grew after booking) — the DB CHECK constraint only requires >= 1.
-      // No slot-capacity cap here either; a capacity warning is surfaced client-side.
       if (!Number.isInteger(party_size) || party_size < 1) {
         return NextResponse.json({ error: 'Invalid party size' }, { status: 400 });
       }
       updates.party_size = party_size;
+    }
+
+    // Dining-room capacity. Enforced here rather than only in the UI: the admin page used
+    // to show a warning and save anyway, so any authenticated caller could seat an
+    // unbounded party. Counted across overlapping seatings, since the 17:00-19:30 and
+    // 18:00-20:15 parties share the room.
+    if (dateChanged || startChanged || endChanged || sizeChanged) {
+      const targetSize = party_size ?? currentBooking.party_size;
+      const otherGuests = await getConcurrentGuests(targetDate, targetStart, targetEnd, id);
+
+      if (otherGuests + targetSize > MAX_CAPACITY) {
+        if (!force_overbook) {
+          return NextResponse.json(
+            {
+              capacityExceeded: true,
+              currentGuests: otherGuests,
+              requested: targetSize,
+              max: MAX_CAPACITY,
+            },
+            { status: 409 }
+          );
+        }
+        // Confirmed override: keep the row out of the one-team-per-slot index so the
+        // deliberate overbooking survives the write, and leave a trace on the row.
+        updates.bypassed_slot_limit = true;
+      }
     }
 
     const { data: updatedBooking, error } = await supabase

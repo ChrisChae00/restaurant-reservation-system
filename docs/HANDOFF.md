@@ -186,9 +186,105 @@ schedulerWorker` 전부 `worker.close()`(BullMQ가 진행 중인 job이 끝날 �
   도는 이론적 레이스(1시간 이상 걸리는 Stripe 호출은 사실상 없다는 전제로 리스크 낮음)는
   건드리지 않음 — jobId dedup 버그만 고침, 근본적인 "복구 대상 판정" 로직 자체는 그대로
 
+## PR #5 2차 리뷰 대응 — 정원(capacity) P1 2건 (2026-08-12)
+
+Vercel 체크 실패 수정 + 2차 코드 리뷰가 지적한 P1 2건 수정. 계획 원본은
+`.claude/plans/findings-p1-resilient-perlis.md` (로컬 plan 파일, repo 밖).
+
+### 0. Vercel 빌드 실패 — root tsconfig가 `backend/`를 삼킴 (커밋 48f2c63)
+
+**Before**: root `tsconfig.json`의 `include`가 `**/*.ts`라 새로 생긴 `backend/`까지 쓸어담음.
+Next.js 빌드의 TypeScript 단계가 `backend/src/index.ts`를 타입체크하다
+`Cannot find module 'express'`로 실패 — `express`는 `backend/node_modules`에만 있고 root에는
+없으니까. 로컬 `npm test`는 `src`만 보므로 증상이 안 보였고, Vercel 배포에서만 터짐.
+
+**After**: root `tsconfig.json`의 `exclude`에 `backend` 추가. backend는 자기 `tsconfig.json`과
+`npm run build`(=`tsc --noEmit`)를 따로 갖고 있으므로 타입 커버리지 손실 없음.
+
+### 1. 겹치는 슬롯이 정원 합산에서 누락 (P1, 정확성)
+
+**근본 원인**: `MAX_CAPACITY = 45`가 사실상 **죽은 상수**였음. 실제 소비처는 두 곳뿐 —
+`availability.ts`의 admin override 분기, `admin/page.tsx`의 경고 문구. 공개 예약 라우트,
+availability 라우트, admin PATCH, SQL 어디에도 없었음. 실제로 동작하던 규칙은 정원이 아니라
+one-team-per-slot(`idx_bookings_one_team_per_slot` 부분 유니크 인덱스)이고, 점유 판정이 전부
+`(booking_date, slot_start, slot_end)` **정확 일치**였음.
+
+그런데 슬롯 정의는 시간상 겹침 — 일/수/목의 early(17:00–19:30)와 mid(18:00–20:15)는 90분
+동안 같은 홀에 있음. 정확 일치 필터는 이 둘을 다른 버킷으로 세므로 동시 인원이 합산에서 빠짐.
+
+**After — 두 개념을 분리한 게 핵심**:
+
+| 개념 | 질문 | 판정 | 함수 |
+|---|---|---|---|
+| 슬롯 점유 | "이 슬롯에 이미 팀이 있나?" | 정확 일치 | `getGuestsInTimeRange` (기존, 그대로) |
+| 동시 인원 | "이 시각 홀에 몇 명인가?" | 시간 겹침 | `getConcurrentGuests` (신설) |
+
+**`getGuestsInTimeRange`를 겹침 쿼리로 바꾸면 안 됨** — `checkSlotAvailability`가 그 반환값으로
+`hasExistingBooking`을 만들고 이게 one-team-per-slot 게이트라, 겹침으로 바꾸면 early 슬롯에
+팀이 있을 때 mid 슬롯 예약이 통째로 막힘(제품 파괴). 다음 세션에서 "왜 두 함수가 비슷한 걸
+세고 있지?" 하고 합치려 하지 말 것. `availability.ts`의 doc comment가 원래
+"querying overlapping bookings"라고 거짓말하고 있던 게 이번 결함의 직접 원인이라 정직하게 고침.
+
+겹침 판정(`slotsOverlap`)은 SQL이 아니라 JS에서 함. 금/토 late 슬롯이 `slot_end = '00:00'`
+(=다음날 자정)인데 PostgREST의 `time` 비교로는 이걸 표현할 수 없음. 날짜당 행 수가 슬롯 3개
+규모라 비용은 무의미. `timeToMinutes(t, isEnd)`가 종료 시각 `'00:00'`만 1440으로 읽음.
+
+override 분기(`checkSlotAvailability`)도 `getConcurrentGuests`로 교체 — 안 그러면 override가
+겹치는 좌석 위에 45명을 더 앉힐 수 있음.
+
+### 2. 정원이 서버에서 강제되지 않음 (P1, 보안/무결성)
+
+**Before**: `admin/bookings/[id]/route.ts`는 `party_size >= 1`만 검사. UI는 경고만 띄우고
+저장 허용("저장은 가능합니다"). 인증된 요청으로 `{"party_size": 200}`을 직접 보내면 그대로
+저장됨 — UI 경고는 보안 경계가 아님.
+
+**After**: 인원/시간/날짜가 바뀌면 `getConcurrentGuests(targetDate, targetStart, targetEnd, id)`로
+자기 자신을 제외한 동시 인원을 세고, 합계가 `MAX_CAPACITY` 초과면 409
+`{ capacityExceeded, currentGuests, requested, max }`. 라우트에 **이미 있던 `force_overbook`
+플래그를 재사용** — 관리자가 확인 후 재요청하면 통과하고 `bypassed_slot_limit = true`로 흔적을
+남김. 신규 필드/마이그레이션 없음. 별도 audit 테이블은 안 만듦(`bypassed_slot_limit`이 이미
+흔적), 누가/언제가 필요해지면 그때.
+
+`updates.bypassed_slot_limit = false`(슬롯 충돌 없음 분기)를 정원 override가 덮어쓰도록 순서
+배치했음 — 두 블록 순서 바꾸지 말 것.
+
+### 3. 클라이언트 중복 계산 삭제
+
+`admin/page.tsx`에서 `/api/bookings?date=`를 fetch해 정확 일치로 합산하던 useEffect(~40줄)와
+경고 렌더링 블록 삭제. 서버가 409를 주면 **기존 `conflict` 409 확인 다이얼로그 흐름을 재사용**해
+확인받고 `force_overbook: true`로 재요청. 클라이언트/서버 규칙 드리프트가 이번 P1-a의 원인이라
+계산 자체를 한쪽에서 없앰.
+
+### 4. `requireAuth` 타입 (부수 수정, 필요했음)
+
+`Promise<{ authenticated: boolean; error?: Response }>`라 `return auth.error`가
+`Response | undefined`가 되고, 모든 admin 라우트의 핸들러 반환 타입에 `undefined`가 섞임.
+새 통합 테스트에서 `response.status` 접근이 TS18048로 터져서 발견. discriminated union
+(`{authenticated: true} | {authenticated: false; error: Response}`)으로 교체 — 호출부
+narrowing이 자동으로 되므로 기존 라우트 12곳 수정 불필요.
+
+### 검증
+
+- `slotsOverlap` 유닛 5건(자정 wrap-around, `HH:MM:SS` 입력, 경계 접촉 non-overlap)
+- `src/app/api/admin/bookings/[id]/route.integration.test.ts` 신설 3건 — 실제 Supabase.
+  **강제 로직을 비활성화하니 2건이 실패하는 것까지 확인**(빈 테스트 아님). 이웃 예약을 일부러
+  *겹치는 다른 슬롯*에 심어서, 정확 일치 방식이면 others=0이 나와 통과해버리도록 설계함.
+- 공개 예약 회귀 1건 — 겹치는 두 슬롯을 각각 예약해도 둘 다 200 (이번 변경의 최대 리스크인
+  "정상 예약 차단"을 직접 방어)
+- `tsc --noEmit` 클린, `npm run lint` 24 problems(베이스라인과 **동일**, 3 errors 전부 기존
+  `any` 관련), `npm test` 7 files / 39 passed | 1 skipped, `npm run build` 성공
+
+### 안 한 것 (스코프 밖)
+
+- admin PATCH의 시간 값을 슬롯 카탈로그(`getSlotsForDate`)에 대조하는 검증 — 지금은 정규식만
+  통과하면 임의 시각 저장 가능(공개 경로에는 있는 검증). 별개 결함, 이번 P1과 무관해서 안 건드림.
+- `getAvailabilityForDate`의 슬롯당 N+1 쿼리, admin 라우트 zod 스키마 도입, 정원 override
+  audit 테이블
+
 ## 함정 주의 (반복 실수 방지)
 
 - **Stripe 매직 카드 토큰 순서 중요**: `pm_card_visa`는 attach 후 반드시 `usage:'off_session'` SetupIntent를 confirm까지 거쳐야 나중에 off-session 청구가 성공함(안 그러면 insufficient_funds로 거절됨 — Radar가 "미인증 첫 사용"으로 봄). 반대로 `pm_card_visa_chargeDeclinedInsufficientFunds` 같은 decline 토큰은 **attach 자체도 거절됨** — SetupIntent도 attach도 건너뛰고 토큰 문자열을 그대로 `payment_method_id`로 써야 함. `scripts/charge-pipeline-benchmark.test.ts`의 `createTestCustomerWithCard` vs `createDeclineTestCustomer` 참고.
 - **BullMQ enqueue 응답(202)과 실제 처리(워커)는 별개 타이밍**. 테스트에서 booking row를 지우기 전에 `charge_attempts` 상태가 종료 상태(succeeded/failed/...)에 도달할 때까지 폴링해서 기다려야 함(`waitForChargeAttemptsToSettle` 패턴). 안 그러면 워커가 이미 지워진 booking을 찾다가 "0 rows" 에러 남.
 - **CJS/ESM 프로젝트 간 같은 npm 패키지를 `instanceof`로 비교하지 말 것.** root는 CJS(Next.js), backend는 `"type":"module"`(ESM) — 같은 `stripe` 버전이라도 서로 다른 클래스 인스턴스. 에러 판별은 무조건 프로퍼티(`.type`, `.code` 등) 기반으로.
+- **통합 테스트끼리 예약 날짜가 겹치면 서로를 깨뜨림.** vitest는 테스트 *파일*을 병렬 실행하는데 DB는 하나뿐이라, 이메일 도메인 격리는 cleanup만 지켜줄 뿐 슬롯 점유는 못 막음. 실제로 새 capacity 테스트가 offset 8일부터 날짜를 고르는 바람에 `route.race.test.ts`가 노리던 슬롯을 선점해서 race 테스트가 "50개 요청 전부 409"로 실패했음. 현재 분할: `route.race.test.ts` 8–30일, `route.integration.test.ts` 15–30일, `admin/bookings/[id]/route.integration.test.ts` **31–60일**. 새 통합 테스트를 추가하면 겹치지 않는 구간을 새로 잡을 것.
 - 벤치마크/테스트가 만드는 데이터는 이메일 도메인으로 격리됨: `@benchmarktest.example`, `@duplicatechargetest.example`, `@loadtest.example`(기존 concurrency-benchmark). 전부 `afterAll`에서 정리되지만, 테스트가 중간에 죽으면 수동으로 지워야 할 수 있음.
