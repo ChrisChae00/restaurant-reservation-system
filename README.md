@@ -7,8 +7,11 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)
 ![Stripe](https://img.shields.io/badge/Stripe-008CDD?style=for-the-badge&logo=stripe&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
+![Express](https://img.shields.io/badge/Express-000000?style=for-the-badge&logo=express&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 
-A modern, full-stack restaurant reservation system built with Next.js, featuring real-time availability, secure payments, automated email notifications, and an administrative dashboard.
+A modern, full-stack restaurant reservation system built with Next.js, featuring real-time availability, secure payments, automated email notifications, and an administrative dashboard. No-show charges are processed by a dedicated queued backend service for retry-safe, non-blocking Stripe billing.
 
 ## 🌟 Features
 
@@ -29,6 +32,7 @@ A modern, full-stack restaurant reservation system built with Next.js, featuring
 - **Email Delivery**: Nodemailer (via Gmail SMTP integration)
 - **Forms & Validation**: React Hook Form, Zod
 - **i18n**: next-intl
+- **Charge Backend**: Express + BullMQ (`backend/`), Redis-backed queue for async no-show charge retries and Stripe webhook reconciliation. Dockerized; the Next.js app can proxy to it via a `CHARGE_VIA_BACKEND` flag with instant rollback to the legacy synchronous path.
 
 ## 🚀 Getting Started
 
@@ -38,6 +42,7 @@ A modern, full-stack restaurant reservation system built with Next.js, featuring
 - A [Supabase](https://supabase.com/) project
 - A [Stripe](https://stripe.com/) account
 - A Gmail account (with App Password enabled)
+- Docker (for Redis, used by the charge backend's BullMQ queues) — only required if running `backend/`
 
 ### Installation
 
@@ -61,6 +66,17 @@ cp .env.local.example .env.local
 - `GMAIL_USER` & `GMAIL_APP_PASSWORD`
 - `JWT_SECRET`, `ADMIN_USERNAME`, & `ADMIN_PASSWORD`
 
+To run the charge backend (`backend/`), copy its own `.env` (see `backend/src/env.ts` for the full schema) with:
+
+- `NEXT_PUBLIC_SUPABASE_URL` & `SUPABASE_SERVICE_ROLE_KEY`
+- `STRIPE_SECRET_KEY` & `STRIPE_WEBHOOK_SECRET`
+- `REDIS_URL` (defaults to `redis://localhost:6379`)
+- `GMAIL_USER` & `GMAIL_APP_PASSWORD`
+- `BACKEND_INTERNAL_SECRET` (16+ chars, shared with the Next.js app's proxy route)
+- `ADMIN_ALERT_EMAIL`
+
+To route no-show charges through it instead of the legacy synchronous path, set `CHARGE_VIA_BACKEND=true` and `BACKEND_URL` in the Next.js app's `.env.local`.
+
 ### Database Setup
 
 Apply the Supabase migrations to set up your database schema. You can execute the SQL scripts found in the `supabase/migrations/` directory directly within your Supabase SQL Editor, or use the CLI:
@@ -79,12 +95,20 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+To run the charge backend locally alongside it:
+
+```bash
+docker compose up -d       # starts Redis
+cd backend && npm install && npm run dev
+```
+
 ## 📁 Project Structure
 
 - `src/app/` - Next.js App Router pages including Frontend interface and Admin Panel
 - `src/app/api/` - Backend API routes for interacting with the database, auth, emails, and Stripe webhooks
 - `src/components/` - Reusable UI elements, `booking/` components, and layout blocks
 - `src/lib/` - Core logic blocks including `auth.ts`, `stripe.ts`, `email.ts`, `supabase/` client, and validations
+- `backend/` - Standalone Express service handling async no-show charge retries (BullMQ/Redis) and Stripe webhook reconciliation; Dockerized, deployed separately from the Next.js app
 - `supabase/migrations/` - PostgreSQL Database schema files and migration definitions
 
 ## 🔒 Security & Reliability Hardening
@@ -119,6 +143,24 @@ below records the defect, the fix, and why it mattered.
 | **Silent notification failures** | Failed confirmation, cancellation, and no-show emails were written only to server logs. Staff had no way to know a guest never received notice of a confirmed or cancelled reservation. | Delivery failures are recorded on the booking row and surfaced as a warning on the admin dashboard. |
 | **Timezone bug repeated on the client** | The admin dashboard reimplemented the 7-day check against the browser's local timezone, so the rule shown to staff could disagree with the rule the server enforced. | Extracted the timezone-correct helpers into a module shared by server and client so a single implementation governs both. |
 | **No visibility into post-hoc payment events** | A no-show charge that failed asynchronously, or a guest disputing a charge weeks later, was observable only by manually checking the Stripe dashboard. | Implemented a signature-verified Stripe webhook endpoint for `payment_intent.payment_failed` and `charge.dispute.created`. *Present in the codebase but not yet enabled; activating it requires only registering the endpoint in Stripe and setting `STRIPE_WEBHOOK_SECRET`.* |
+
+### Phase 3 — Async charge pipeline (`backend/`)
+
+| Area | Problem found | Resolution & impact |
+| --- | --- | --- |
+| **Blocking, non-retrying charge path** | The admin no-show charge was a single synchronous Stripe call from the Next.js API route (p95 1088ms) with no retry and no persisted failure record. | Split into a fast enqueue (p95 212ms) handled by the Next.js route, and a BullMQ worker in the new `backend/` service that classifies Stripe errors (transient / insufficient_funds / permanent) and retries accordingly. Rollout is gated by `CHARGE_VIA_BACKEND`, so it can be flipped back to the legacy synchronous path with no deploy. |
+| **Webhook failures only logged, never persisted** | `payment_intent.payment_failed` and `charge.dispute.created` events were only `console.error`'d, with nothing written to the database and no alert to staff. | Webhooks are now verified, recorded idempotently, and processed by a worker that reconciles `charge_attempts`/`bookings` and emails disputes to `ADMIN_ALERT_EMAIL`. |
+| **Duplicate-charge defense was one layer** | Only a Stripe idempotency key guarded against double charges. | Added a DB `UNIQUE` constraint and a BullMQ `jobId` as two further independent layers (three total), verified under concurrent requests. |
+| **Cross-module `instanceof` check silently misclassified every Stripe error** | The root app (CJS) and `backend/` (ESM) load separate builds of the `stripe` package, so `instanceof Stripe.errors.StripeError` was always `false` across the module boundary — every charge failure was misclassified as `permanent` with a null error code, found during load testing. | Replaced with a duck-typed error check, covered by a regression test asserting the cross-module case. |
+
+### Measured: charge pipeline latency
+
+Before/after the async split, with the failure-recording change included (full benchmark generated by `scripts/charge-pipeline-benchmark.test.ts`; not part of `npm test`, run it explicitly):
+
+| | p95 latency |
+| --- | --- |
+| **Before** (synchronous Stripe call) | 1088ms |
+| **After** (enqueue only, worker processes async) | 212ms |
 
 ### Measured: concurrency defense in numbers
 
@@ -156,8 +198,16 @@ npm run test:coverage # with coverage report
 - `scripts/concurrency-benchmark.test.ts` — the 50-request load benchmark behind the table
   above. Not part of `npm test` (it fires real load at the database); run explicitly with
   `npx vitest run scripts/concurrency-benchmark.test.ts`.
+- `scripts/charge-pipeline-benchmark.test.ts` — the charge pipeline latency benchmark above.
+  Also excluded from `npm test`; run with `npx vitest run scripts/charge-pipeline-benchmark.test.ts`.
 
-### Additional environment variable
+`backend/` has its own suite (`cd backend && npm test`), covering Stripe error
+classification (including the cross-module `instanceof` regression), the internal-auth
+guard, and duplicate-charge concurrency (real Stripe test mode + Supabase).
+
+### Additional environment variables
 
 - `STRIPE_WEBHOOK_SECRET` — required **only** if the Stripe webhook endpoint is enabled.
   The booking and payment flows operate normally without it.
+- `CHARGE_VIA_BACKEND` & `BACKEND_URL` — required **only** to route no-show charges through
+  `backend/` instead of the legacy synchronous path. Unset, charging behaves as before.
