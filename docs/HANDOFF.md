@@ -94,13 +94,34 @@ Stripe idempotency key는 24시간 동안 최초 응답(실패 포함)을 그대
 제외하고는 **실제로 카드에 아무 일도 안 일어남**. "3중 방어" 문서화 주장과 달리 재시도 로직은
 죽은 코드에 가까웠음.
 
-**After**: `chargeNoShowFee()`에 선택적 `idempotencySuffix` 파라미터 추가, 워커가 매 시도마다
-증가하는 `attempt_count`를 넘겨서 Stripe key가 `noshow-{bookingId}-{amount}-{attemptNumber}`로
-매번 달라지게 함. 동기 경로(`charge-penalty/route.ts`, 재시도 없음)는 인자를 안 넘기므로
-기존 키 형식 그대로 — 회귀 없음. `charge_attempts.idempotency_key`(DB UNIQUE, 앱 레벨
-중복 방어)는 그대로 booking+amount 고정 유지 — "이 청구 시도"를 식별하는 키와 "이번 Stripe
-호출"을 식별하는 키는 서로 다른 레이어라 분리하는 게 맞음: 전자는 안 바뀌어야 진짜 중복 요청을
-잡고, 후자는 매 재시도마다 바뀌어야 재시도가 의미를 가짐.
+**시도했던 수정 (되돌림)**: `chargeNoShowFee()`에 `idempotencySuffix`를 추가해 워커가 매 시도마다
+`noshow-{bookingId}-{amount}-{attemptNumber}`로 키를 바꾸게 했음. **이게 이중 청구 버그를
+만들었다.** 위 "Before" 분석의 전제가 틀렸다 — Stripe는 연결 에러·429·5xx 응답의 결과를
+멱등성 캐시에 **저장하지 않는다**. 즉 `transient`로 분류되는 실패들은 애초에 같은 키로도
+재시도가 정상 동작했고, 키를 바꿔야 할 이유가 없었다. 반면 키를 바꾸면 이런 경로가 열린다:
+
+- 워커가 Stripe 호출 성공 후 상태 기록 전에 죽음 → row가 `processing`으로 남음 →
+  `recoverStuckChargeAttempts`가 1시간 뒤 재큐 → 접미사 `-2`로 **새 PaymentIntent 생성**
+- Stripe가 카드를 승인했는데 응답 수신 전 타임아웃 → `StripeConnectionError` → `transient`
+  분류 → 60초 뒤 `-2` 키로 **두 번째 청구**
+
+두 경우 모두 `payment_intent_id`를 기록하기 전이라 webhook 재조정도 못 잡는다.
+
+**최종 (After)**: 파라미터를 `idempotencyKeyOverride`로 바꾸고, 워커는 **그 행의
+`charge_attempts.idempotency_key`를 그대로** Stripe 키로 쓴다. 불변식 하나로 정리됨 —
+**charge_attempts 행 1개 = Stripe 청구 최대 1건**, job이 몇 번 재시도/복구되든 무관.
+
+- 결과를 모르는 실패(크래시, 타임아웃): 같은 키 → Stripe가 원래 PaymentIntent를 replay →
+  워커가 스스로 `succeeded`로 재조정. 이중 청구 불가.
+- 진짜 재시도가 필요한 실패(연결 에러·429·5xx): Stripe에 캐시가 없으므로 같은 키로도
+  새 PaymentIntent 생성. 재시도 의미 유지.
+- `insufficient_funds` 재시도만 진짜 새 청구가 필요한데, 키를 바꾸는 대신 Stripe의 24시간
+  멱등성 창을 넘겨서 해결 — `RETRY_DELAYS_MS.insufficientFunds`를 24h → **25h**로 변경.
+- 관리자의 의도적 재청구는 애초에 `-manual{n}` 키를 가진 **새 행**이라 영향 없음 (§4).
+
+동기 경로(`charge-penalty/route.ts`)는 인자를 안 넘기므로 기존 키 형식 그대로 — 회귀 없음.
+회귀 테스트: `backend/src/jobs/charge.worker.test.ts` (`processChargeJob`을 워커 생성과
+분리해 Redis 없이 검증).
 
 ### 4. Permanent 실패 후 UI에서 영구 재청구 불가 (Important)
 

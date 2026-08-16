@@ -25,95 +25,108 @@ async function getBooking(id: string): Promise<Booking> {
   return data as Booking;
 }
 
+// Exported separately from startChargeWorker so the charge path can be exercised without a
+// live Redis connection (see charge.worker.test.ts).
+export async function processChargeJob(job: Job<ChargeJobData>) {
+  const attempt = await getChargeAttempt(job.data.chargeAttemptId);
+
+  // A finished attempt should never be re-executed even if something re-enqueues its
+  // job — this worker only spends Stripe calls on queued/processing/failed rows.
+  if (attempt.status === 'succeeded' || attempt.status === 'disputed' || attempt.status === 'refunded') {
+    return;
+  }
+
+  const booking = await getBooking(attempt.booking_id);
+  const attemptNumber = attempt.attempt_count + 1;
+
+  await updateChargeAttempt(attempt.id, {
+    status: 'processing',
+    attempt_count: attemptNumber,
+  });
+
+  let paymentIntent;
+  try {
+    paymentIntent = await chargeNoShowFee(
+      booking.stripe_customer_id,
+      booking.stripe_payment_method_id,
+      attempt.guest_count,
+      booking.id,
+      attempt.amount_cents,
+      // One charge_attempts row == at most one Stripe charge, forever. The row's own
+      // idempotency_key is reused on every retry and every recovery of this row, which
+      // is what makes an unknown outcome safe: a run that reached Stripe and charged
+      // the card but never recorded it (worker crash before the status write, or a
+      // connection error after Stripe accepted the request) comes back here, gets the
+      // cached PaymentIntent replayed, and reconciles itself instead of charging the
+      // guest a second time.
+      //
+      // Reusing the key costs a genuine retry nothing: Stripe does not cache the result
+      // of connection errors, 429s, or 5xx responses -- exactly the failures classified
+      // 'transient' -- so the same key still creates a fresh PaymentIntent when no
+      // charge actually happened. The insufficient-funds retry is the one case that
+      // needs a truly new charge, and it waits out Stripe's 24h idempotency window
+      // (see RETRY_DELAYS_MS in queue.ts) rather than varying the key.
+      //
+      // An admin deliberately re-charging after a permanent failure gets a *new row*
+      // with its own `-manual{n}` key (routes/admin.ts), so that path is unaffected.
+      attempt.idempotency_key
+    );
+  } catch (error) {
+    await handleChargeError(attempt, error);
+    return;
+  }
+
+  // confirm:true can return without throwing while unsettled (requires_action,
+  // processing) — recording that as succeeded would mark money collected that never
+  // moved. Same rule the existing synchronous route enforces (charge-penalty/route.ts).
+  if (paymentIntent.status !== 'succeeded') {
+    await updateChargeAttempt(attempt.id, {
+      status: paymentIntent.status === 'requires_action' ? 'requires_action' : 'failed',
+      payment_intent_id: paymentIntent.id,
+    });
+    await queueChargeFailedAdminAlert({
+      bookingId: booking.id,
+      bookingReference: booking.booking_reference ?? null,
+      errorCode: paymentIntent.status,
+      errorMessage: `PaymentIntent did not succeed: ${paymentIntent.status}`,
+    });
+    return;
+  }
+
+  await updateChargeAttempt(attempt.id, { status: 'succeeded', payment_intent_id: paymentIntent.id });
+
+  const { error: bookingUpdateError } = await db()
+    .from('bookings')
+    .update({
+      status: 'noshow_charged',
+      penalty_charged_at: new Date().toISOString(),
+      penalty_amount: paymentIntent.amount,
+      penalty_payment_intent_id: paymentIntent.id,
+    })
+    .eq('id', booking.id);
+
+  if (bookingUpdateError) {
+    // The card was already charged (charge_attempts already says succeeded, which is
+    // the source of truth). Log loudly but don't fail the job — the webhook handler's
+    // payment_intent.succeeded path retries this same write independently, so it
+    // self-heals instead of requiring a human to reconcile Stripe against the dashboard.
+    logger.error(
+      { bookingUpdateError, bookingId: booking.id, paymentIntentId: paymentIntent.id },
+      'Charged the card but failed to update the booking row'
+    );
+  }
+
+  await queueEmail({
+    template: 'noshow-charge-receipt',
+    bookingId: booking.id,
+    recipient: booking.email,
+    locale: booking.email_language ?? undefined,
+    params: { amountCents: paymentIntent.amount, guestCount: attempt.guest_count },
+  });
+}
+
 export function startChargeWorker() {
-  const worker = new Worker<ChargeJobData>(
-    'charge',
-    async (job: Job<ChargeJobData>) => {
-      const attempt = await getChargeAttempt(job.data.chargeAttemptId);
-
-      // A finished attempt should never be re-executed even if something re-enqueues its
-      // job — this worker only spends Stripe calls on queued/processing/failed rows.
-      if (attempt.status === 'succeeded' || attempt.status === 'disputed' || attempt.status === 'refunded') {
-        return;
-      }
-
-      const booking = await getBooking(attempt.booking_id);
-      const attemptNumber = attempt.attempt_count + 1;
-
-      await updateChargeAttempt(attempt.id, {
-        status: 'processing',
-        attempt_count: attemptNumber,
-      });
-
-      let paymentIntent;
-      try {
-        paymentIntent = await chargeNoShowFee(
-          booking.stripe_customer_id,
-          booking.stripe_payment_method_id,
-          attempt.guest_count,
-          booking.id,
-          attempt.amount_cents,
-          // Distinct Stripe idempotency key per attempt number — without this, a retry
-          // after a transient failure sends the exact same key Stripe already has a
-          // response cached for, so Stripe replays the original failure and no charge is
-          // ever actually reattempted. See docs/HANDOFF.md for the reasoning.
-          String(attemptNumber)
-        );
-      } catch (error) {
-        await handleChargeError(attempt, error);
-        return;
-      }
-
-      // confirm:true can return without throwing while unsettled (requires_action,
-      // processing) — recording that as succeeded would mark money collected that never
-      // moved. Same rule the existing synchronous route enforces (charge-penalty/route.ts).
-      if (paymentIntent.status !== 'succeeded') {
-        await updateChargeAttempt(attempt.id, {
-          status: paymentIntent.status === 'requires_action' ? 'requires_action' : 'failed',
-          payment_intent_id: paymentIntent.id,
-        });
-        await queueChargeFailedAdminAlert({
-          bookingId: booking.id,
-          bookingReference: booking.booking_reference ?? null,
-          errorCode: paymentIntent.status,
-          errorMessage: `PaymentIntent did not succeed: ${paymentIntent.status}`,
-        });
-        return;
-      }
-
-      await updateChargeAttempt(attempt.id, { status: 'succeeded', payment_intent_id: paymentIntent.id });
-
-      const { error: bookingUpdateError } = await db()
-        .from('bookings')
-        .update({
-          status: 'noshow_charged',
-          penalty_charged_at: new Date().toISOString(),
-          penalty_amount: paymentIntent.amount,
-          penalty_payment_intent_id: paymentIntent.id,
-        })
-        .eq('id', booking.id);
-
-      if (bookingUpdateError) {
-        // The card was already charged (charge_attempts already says succeeded, which is
-        // the source of truth). Log loudly but don't fail the job — the webhook handler's
-        // payment_intent.succeeded path retries this same write independently, so it
-        // self-heals instead of requiring a human to reconcile Stripe against the dashboard.
-        logger.error(
-          { bookingUpdateError, bookingId: booking.id, paymentIntentId: paymentIntent.id },
-          'Charged the card but failed to update the booking row'
-        );
-      }
-
-      await queueEmail({
-        template: 'noshow-charge-receipt',
-        bookingId: booking.id,
-        recipient: booking.email,
-        locale: booking.email_language ?? undefined,
-        params: { amountCents: paymentIntent.amount, guestCount: attempt.guest_count },
-      });
-    },
-    { connection }
-  );
+  const worker = new Worker<ChargeJobData>('charge', processChargeJob, { connection });
 
   worker.on('failed', (job, err) => {
     logger.error({ err, chargeAttemptId: job?.data.chargeAttemptId }, 'Charge job failed');
