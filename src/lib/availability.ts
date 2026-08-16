@@ -2,7 +2,7 @@
 // Handles fixed time slot capacity calculations
 
 import { createServerClient } from '@/lib/supabase/server';
-import { TimeSlot, getSlotsForDate, MAX_CAPACITY } from '@/lib/booking-rules';
+import { TimeSlot, getSlotsForDate, MAX_CAPACITY, slotsOverlap } from '@/lib/booking-rules';
 import type { SlotAvailability } from '@/types/booking';
 
 /**
@@ -83,9 +83,12 @@ function isSlotPastCutoff(dateStr: string, slotStart: string): boolean {
 }
 
 /**
- * Calculate the number of guests during a specific time range
- * by querying overlapping bookings from the database.
- * Includes pending, confirmed, and completed reservations
+ * Sum the party sizes booked into one *exact* slot (same date, same start, same end).
+ *
+ * This backs the one-team-per-slot gate and deliberately mirrors the partial unique
+ * index `idx_bookings_one_team_per_slot`, which is also keyed on the exact tuple.
+ * It is NOT a measure of how many guests are in the room at once — overlapping
+ * seatings land in different buckets. Use `getConcurrentGuests` for capacity.
  */
 export async function getGuestsInTimeRange(
   date: string,
@@ -106,7 +109,6 @@ export async function getGuestsInTimeRange(
   const normalizedStart = normalizeTime(slotStart);
   const normalizedEnd = normalizeTime(slotEnd);
 
-  // Query for overlapping bookings
   // Include pending to block slots when reservation is pending approval
   const { data: bookings, error } = await supabase
     .from('bookings')
@@ -128,6 +130,47 @@ export async function getGuestsInTimeRange(
   );
 
   return totalGuests;
+}
+
+/**
+ * Total guests whose seating actually overlaps the given window, for capacity checks.
+ *
+ * Unlike `getGuestsInTimeRange` this crosses slot boundaries: the 17:00-19:30 and
+ * 18:00-20:15 parties are in the room together and both count. Pass
+ * `excludeBookingId` when re-checking a booking that is itself being edited.
+ *
+ * The overlap is computed in JS rather than SQL because a slot ending at '00:00'
+ * means next-day midnight, which a PostgREST `time` comparison cannot express.
+ * A single date holds a handful of rows, so the filtering cost is irrelevant.
+ */
+export async function getConcurrentGuests(
+  date: string,
+  slotStart: string,
+  slotEnd: string,
+  excludeBookingId?: string
+): Promise<number> {
+  const supabase = createServerClient();
+
+  const { data: bookings, error } = await supabase
+    .from('bookings')
+    .select('id, party_size, slot_start, slot_end')
+    .eq('booking_date', date)
+    .in('status', ['pending', 'confirmed', 'completed']);
+
+  // Reporting a transient failure as "nobody is here" would wave through an
+  // overbooking, so fail loudly like the other helpers in this file.
+  if (error) {
+    console.error('Error fetching bookings for capacity check:', error);
+    throw new Error('Failed to check availability');
+  }
+
+  return (bookings || [])
+    .filter(
+      (booking) =>
+        booking.id !== excludeBookingId &&
+        slotsOverlap(slotStart, slotEnd, booking.slot_start, booking.slot_end)
+    )
+    .reduce((sum, booking) => sum + booking.party_size, 0);
 }
 
 /**
@@ -182,9 +225,11 @@ export async function checkSlotAvailability(
 
     // If admin allowed additional bookings, the slot is available but still capped at
     // MAX_CAPACITY total guests — otherwise repeated overrides could stack unlimited teams
-    // into one seating.
+    // into one seating. The cap counts everyone in the room at the same time, not just
+    // this exact slot, or an override could seat 45 on top of an overlapping seating.
     if (data) {
-      const remainingCapacity = Math.max(0, MAX_CAPACITY - currentGuests);
+      const concurrentGuests = await getConcurrentGuests(date, slotStart, slotEnd);
+      const remainingCapacity = Math.max(0, MAX_CAPACITY - concurrentGuests);
       return {
         available: partySize <= remainingCapacity,
         currentGuests,

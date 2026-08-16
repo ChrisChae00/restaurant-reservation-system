@@ -139,8 +139,13 @@ export async function refreshToken(): Promise<void> {
   }
 }
 
-// Require authentication for API routes - returns error response if not authenticated
-export async function requireAuth(): Promise<{ authenticated: boolean; error?: Response }> {
+// Require authentication for API routes - returns error response if not authenticated.
+// Modelled as a discriminated union so `if (!auth.authenticated) return auth.error;`
+// narrows to a real Response; with an optional `error?` the handler's return type picks
+// up `undefined` and every caller has to assert it away.
+export async function requireAuth(): Promise<
+  { authenticated: true } | { authenticated: false; error: Response }
+> {
   const authenticated = await isAuthenticated();
   
   if (!authenticated) {

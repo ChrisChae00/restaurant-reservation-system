@@ -8,6 +8,34 @@ import { chargePenaltyRequestSchema } from '@/lib/validations';
 import { requireAuth } from '@/lib/auth';
 import { sendNoShowChargeEmail } from '@/lib/email';
 
+// Proxies the charge to the backend's queued pipeline (see backend/src/routes/admin.ts)
+// when configured. Flipping CHARGE_VIA_BACKEND off routes traffic back through the
+// synchronous path below with no deploy required -- the safety net for a payment-path
+// change.
+async function proxyToBackend(
+  bookingId: string,
+  guestCount: number | undefined,
+  customAmount: number | undefined
+): Promise<NextResponse> {
+  const backendUrl = process.env.BACKEND_URL;
+  const secret = process.env.BACKEND_INTERNAL_SECRET;
+  if (!backendUrl || !secret) {
+    throw new Error('BACKEND_URL / BACKEND_INTERNAL_SECRET must be set when CHARGE_VIA_BACKEND=true');
+  }
+
+  const response = await fetch(`${backendUrl}/api/admin/bookings/${bookingId}/charge`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-internal-secret': secret,
+    },
+    body: JSON.stringify({ guestCount, customAmount }),
+  });
+
+  const data = await response.json();
+  return NextResponse.json(data, { status: response.status });
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Check authentication
@@ -28,6 +56,10 @@ export async function POST(request: NextRequest) {
     }
 
     const { bookingId, guestCount, customAmount } = validationResult.data;
+
+    if (process.env.CHARGE_VIA_BACKEND === 'true') {
+      return await proxyToBackend(bookingId, guestCount, customAmount);
+    }
 
     const supabase = createServerClient();
 

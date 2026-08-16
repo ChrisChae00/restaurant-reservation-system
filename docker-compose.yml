@@ -1,0 +1,12 @@
+# Local dev only: Redis for backend/'s BullMQ queues. The Next.js app and backend both run
+# with `npm run dev` outside this compose file — only their shared queue dependency lives here.
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+
+volumes:
+  redis-data:

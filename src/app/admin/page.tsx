@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import type { Booking, BookingStatus } from '@/types/booking';
-import { getSlotsForDate, formatTimeRange, MAX_CAPACITY } from '@/lib/booking-rules';
+import { getSlotsForDate, formatTimeRange } from '@/lib/booking-rules';
 import { isWithin7Days as isDateWithin7Days } from '@/lib/restaurant-time';
 
 
@@ -134,7 +134,6 @@ export default function AdminPage() {
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
   const [editForm, setEditForm] = useState<Partial<Booking>>({});
   const [isUpdating, setIsUpdating] = useState(false);
-  const [editSlotOthersTotal, setEditSlotOthersTotal] = useState<number | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -253,47 +252,6 @@ export default function AdminPage() {
       fetchBlockedSlots();
     }
   }, [dateFilter, statusFilter, activeTab]);
-
-  // The capacity warning in the edit modal needs an accurate count for the target
-  // slot, which may be on a date not currently loaded into `bookings` (e.g. editing
-  // from the 승인 대기 card in Quick View, whose date rarely matches the list filter).
-  useEffect(() => {
-    if (!editingBooking) {
-      setEditSlotOthersTotal(null);
-      return;
-    }
-    const targetDate = editForm.booking_date ?? editingBooking.booking_date;
-    const targetStart = (editForm.slot_start ?? editingBooking.slot_start)?.slice(0, 5);
-    const targetEnd = (editForm.slot_end ?? editingBooking.slot_end)?.slice(0, 5);
-    if (!targetDate || !targetStart || !targetEnd) {
-      setEditSlotOthersTotal(null);
-      return;
-    }
-
-    let cancelled = false;
-    (async () => {
-      try {
-        const response = await fetch(`/api/bookings?date=${targetDate}`);
-        const data = await response.json();
-        const total = ((data.bookings || []) as Booking[])
-          .filter((b) =>
-            b.id !== editingBooking.id &&
-            b.slot_start?.slice(0, 5) === targetStart &&
-            b.slot_end?.slice(0, 5) === targetEnd &&
-            ['pending', 'confirmed', 'completed'].includes(b.status)
-          )
-          .reduce((sum, b) => sum + b.party_size, 0);
-        if (!cancelled) setEditSlotOthersTotal(total);
-      } catch (error) {
-        console.error('Failed to fetch slot occupancy:', error);
-        if (!cancelled) setEditSlotOthersTotal(null);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [editingBooking, editForm.booking_date, editForm.slot_start, editForm.slot_end]);
 
   useEffect(() => {
     if (chargeSuccess || chargeError) {
@@ -463,10 +421,37 @@ export default function AdminPage() {
     setChargeCustomAmount('');
   };
 
+  // Polls the backend charge pipeline's status for a booking (via the /api/admin/charges
+  // proxy) until the attempt reaches a terminal state or the timeout elapses. Only used
+  // when the charge-penalty route responds 202 (CHARGE_VIA_BACKEND=true) -- the legacy
+  // synchronous path already returns a final result directly.
+  const pollChargeAttempt = async (
+    bookingId: string,
+    chargeAttemptId: string,
+    timeoutMs = 30000
+  ): Promise<{ status: string; amount_cents: number; guest_count: number; stripe_error_message: string | null } | null> => {
+    const terminal = new Set(['succeeded', 'failed', 'requires_action', 'disputed', 'refunded']);
+    const deadline = Date.now() + timeoutMs;
+
+    while (Date.now() < deadline) {
+      const res = await fetch(`/api/admin/charges/${bookingId}`);
+      if (res.ok) {
+        const data = await res.json();
+        const attempt = data.attempts?.find((a: { id: string }) => a.id === chargeAttemptId);
+        if (attempt && terminal.has(attempt.status)) {
+          return attempt;
+        }
+      }
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+    return null; // still processing when we gave up polling -- not a failure
+  };
+
   const handleChargePenalty = async () => {
     if (!chargeModalBooking) return;
 
-    setChargingId(chargeModalBooking.id);
+    const bookingId = chargeModalBooking.id;
+    setChargingId(bookingId);
     setChargeError(null);
     setChargeSuccess(null);
     handleCloseChargeModal();
@@ -475,8 +460,8 @@ export default function AdminPage() {
       const response = await fetch('/api/admin/charge-penalty', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          bookingId: chargeModalBooking.id,
+        body: JSON.stringify({
+          bookingId,
           guestCount: chargeGuestCount,
           customAmount: useCustomAmount ? parseFloat(chargeCustomAmount) : undefined,
         }),
@@ -492,7 +477,22 @@ export default function AdminPage() {
         );
       }
 
-      setChargeSuccess(`$${result.chargedAmount} CAD 청구 완료 (${result.chargedGuestCount}명)`);
+      if (response.status === 202 && result.chargeAttemptId) {
+        // Queued on the backend -- wait for it to settle instead of trusting an
+        // in-flight status as a final answer.
+        setChargeSuccess('청구 처리 중...');
+        const attempt = await pollChargeAttempt(bookingId, result.chargeAttemptId);
+        if (attempt?.status === 'succeeded') {
+          setChargeSuccess(`$${(attempt.amount_cents / 100).toFixed(2)} CAD 청구 완료 (${attempt.guest_count}명)`);
+        } else if (attempt) {
+          setChargeError(`위약금 청구 실패: ${attempt.stripe_error_message ?? attempt.status}`);
+        } else {
+          setChargeSuccess('청구 처리 중입니다. 잠시 후 예약 상태를 확인해주세요.');
+        }
+      } else {
+        setChargeSuccess(`$${result.chargedAmount} CAD 청구 완료 (${result.chargedGuestCount}명)`);
+      }
+
       fetchBookings();
     } catch (error) {
       console.error('Charge error:', error);
@@ -609,6 +609,18 @@ export default function AdminPage() {
             .map((b) => `${b.first_name} ${b.last_name} (${b.party_size}명)`)
             .join(', ');
           if (window.confirm(`이미 이 시간대에 다음 예약이 있습니다: ${summary}\n그래도 진행하시겠습니까?`)) {
+            await submitUpdate(true);
+          }
+          return;
+        }
+
+        // The server counts everyone seated at an overlapping time, so this total can be
+        // higher than what the edited slot alone holds.
+        if (response.status === 409 && result?.capacityExceeded) {
+          const total = result.currentGuests + result.requested;
+          if (window.confirm(
+            `이 시간대 총 인원이 ${total}명으로 정원(${result.max}명)을 초과합니다.\n그래도 저장하시겠습니까?`
+          )) {
             await submitUpdate(true);
           }
           return;
@@ -1388,18 +1400,6 @@ export default function AdminPage() {
                          value={editForm.party_size || ''}
                          onChange={(e) => setEditForm(prev => ({...prev, party_size: parseInt(e.target.value) || 0}))}
                        />
-                       {editSlotOthersTotal !== null && (() => {
-                         const total = editSlotOthersTotal + (editForm.party_size || 0);
-                         if (total > MAX_CAPACITY) {
-                           return (
-                             <p className="text-xs text-amber-400 flex items-center gap-1">
-                               <AlertTriangle className="h-3 w-3" />
-                               이 시간대 총 인원이 {total}명으로 정원({MAX_CAPACITY}명)을 초과합니다. 저장은 가능합니다.
-                             </p>
-                           );
-                         }
-                         return null;
-                       })()}
                     </div>
 
                     <div className="space-y-2">

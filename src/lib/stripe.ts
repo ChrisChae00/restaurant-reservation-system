@@ -138,7 +138,8 @@ export async function chargeNoShowFee(
   paymentMethodId: string,
   partySize: number,
   bookingId: string,
-  customAmountCents?: number
+  customAmountCents?: number,
+  idempotencyKeyOverride?: string
 ): Promise<Stripe.PaymentIntent> {
   const stripe = getStripe();
   const amount = customAmountCents ?? (NO_SHOW_FEE_PER_PERSON * partySize);
@@ -165,7 +166,13 @@ export async function chargeNoShowFee(
       // A retry, a double-click, or a second attempt after a failed status write returns
       // the original PaymentIntent instead of charging the guest again. The amount is part
       // of the key so a deliberate re-charge at a different amount is still possible.
-      idempotencyKey: `noshow-${bookingId}-${amount}`,
+      //
+      // idempotencyKeyOverride lets the queued backend pass its charge_attempts row's own
+      // key, so one row can never produce more than one Stripe charge no matter how often
+      // the job is retried or recovered (backend/src/jobs/charge.worker.ts). It must stay
+      // *stable* across retries of the same row — a per-attempt key is what allows a run
+      // that charged the card but lost the response to charge it a second time.
+      idempotencyKey: idempotencyKeyOverride ?? `noshow-${bookingId}-${amount}`,
     }
   );
 

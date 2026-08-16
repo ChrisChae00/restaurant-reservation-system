@@ -6,6 +6,40 @@
 // ============================================
 export const MAX_CAPACITY = 45; // Maximum guests at any given time
 export const NO_SHOW_FEE_PER_PERSON = 20; // CAD (will be 2000 cents in Stripe)
+
+/**
+ * Minutes since midnight. Accepts both HH:MM (slot definitions) and HH:MM:SS
+ * (the Postgres TIME columns).
+ *
+ * A slot ending at '00:00' means midnight of the *next* day (the Fri/Sat
+ * 21:30-00:00 seating), so as an end time it is 1440, not 0. Callers pass
+ * `isEnd` for that case.
+ */
+export function timeToMinutes(time: string, isEnd = false): number {
+  const [h, m] = time.slice(0, 5).split(':').map(Number);
+  const minutes = h * 60 + m;
+  return isEnd && minutes === 0 ? 24 * 60 : minutes;
+}
+
+/**
+ * Do two seatings share any wall-clock time?
+ *
+ * Slots overlap by design — on Sun/Wed/Thu the early (17:00-19:30) and mid
+ * (18:00-20:15) seatings are in the room together for 90 minutes — so counting
+ * concurrent guests by exact (slot_start, slot_end) equality undercounts.
+ * Touching boundaries (19:30 end vs 19:30 start) are not an overlap.
+ */
+export function slotsOverlap(
+  aStart: string,
+  aEnd: string,
+  bStart: string,
+  bEnd: string
+): boolean {
+  return (
+    timeToMinutes(aStart) < timeToMinutes(bEnd, true) &&
+    timeToMinutes(bStart) < timeToMinutes(aEnd, true)
+  );
+}
 export const CANCELLATION_WINDOW_DAYS = 7; // 1 week prior to reservation
 export const GUEST_CHANGE_WINDOW_HOURS = 24; // 24 hours prior to reservation start time
 
