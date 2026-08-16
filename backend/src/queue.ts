@@ -14,8 +14,8 @@ export const emailQueue = new Queue<EmailJobData>('email', { connection });
 export const RETRY_DELAYS_MS = {
   transient: [60_000, 5 * 60_000, 60 * 60_000], // 1m, 5m, 1h
   // 25h, not 24h: a charge_attempts row reuses one Stripe idempotency key for every retry
-  // (see charge.worker.ts), and Stripe caches a key's response for 24h. This is the one
-  // retry that must produce a genuinely new charge rather than a replayed decline, so it
-  // waits until the key has definitely expired. One retry, i.e. two attempts total.
+  // (see charge.worker.ts), and Stripe retains a key's saved response for at least 24h.
+  // This is the one retry that must produce a genuinely new charge rather than a replayed
+  // decline, so it waits until the key has definitely been pruned. One retry, two attempts.
   insufficientFunds: [25 * 60 * 60_000],
 } as const;

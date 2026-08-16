@@ -60,12 +60,17 @@ export async function processChargeJob(job: Job<ChargeJobData>) {
       // cached PaymentIntent replayed, and reconciles itself instead of charging the
       // guest a second time.
       //
-      // Reusing the key costs a genuine retry nothing: Stripe does not cache the result
-      // of connection errors, 429s, or 5xx responses -- exactly the failures classified
-      // 'transient' -- so the same key still creates a fresh PaymentIntent when no
-      // charge actually happened. The insufficient-funds retry is the one case that
-      // needs a truly new charge, and it waits out Stripe's 24h idempotency window
-      // (see RETRY_DELAYS_MS in queue.ts) rather than varying the key.
+      // Retrying a connection error with the *same* key is Stripe's own documented
+      // recovery path ("if a connection error occurs, you can safely repeat the request
+      // without risk of creating a second object"), and that is what this retry policy
+      // mostly sees. Known tradeoff: a 5xx Stripe actually returned *is* saved and
+      // replayed for 24h, so those retries re-read the same error and end at the admin
+      // alert rather than a fresh charge -- the admin can then re-charge deliberately via
+      // a new `-manual{n}` row. A wasted retry beats billing a guest twice.
+      //
+      // The insufficient-funds retry is the one case that needs a genuinely new charge,
+      // and it waits out Stripe's 24h key retention (RETRY_DELAYS_MS in queue.ts) instead
+      // of varying the key.
       //
       // An admin deliberately re-charging after a permanent failure gets a *new row*
       // with its own `-manual{n}` key (routes/admin.ts), so that path is unaffected.
