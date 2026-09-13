@@ -62,6 +62,7 @@ export async function PATCH(
       slot_start,
       slot_end,
       allergy_info,
+      email_language,
       // The version of the row the admin last saw. Two admins editing the same booking at
       // once would otherwise let the second save silently overwrite the first.
       updated_at,
@@ -150,6 +151,12 @@ export async function PATCH(
     if (email !== undefined) updates.email = email;
     if (phone !== undefined) updates.phone = phone;
     if (allergy_info !== undefined) updates.allergy_info = allergy_info;
+    if (email_language !== undefined) {
+      if (email_language !== 'en' && email_language !== 'fr') {
+        return NextResponse.json({ error: 'Invalid email language' }, { status: 400 });
+      }
+      updates.email_language = email_language;
+    }
 
     const dateChanged = booking_date !== undefined && booking_date !== currentBooking.booking_date;
     const startChanged = slot_start !== undefined && slot_start !== currentBooking.slot_start;

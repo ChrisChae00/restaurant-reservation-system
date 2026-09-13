@@ -656,6 +656,7 @@ export default function AdminPage() {
       slot_start: booking.slot_start,
       slot_end: booking.slot_end,
       allergy_info: booking.allergy_info,
+      email_language: booking.email_language,
     });
   };
 
@@ -1281,7 +1282,7 @@ export default function AdminPage() {
                                 </div>
                               )}
                             </div>
-                            <div className="mt-2 sm:mt-3 flex justify-end gap-1 sm:gap-2">
+                            <div className="mt-2 sm:mt-3 flex justify-end gap-2">
                                <Button
                                   size="sm"
                                   variant="outline"
@@ -1379,7 +1380,7 @@ export default function AdminPage() {
                                 </div>
                               )}
                             </div>
-                            <div className="mt-2 sm:mt-3 flex justify-end gap-1 sm:gap-2">
+                            <div className="mt-2 sm:mt-3 flex justify-end gap-2">
                                <Button 
                                   size="sm" 
                                   variant="outline"
@@ -1477,7 +1478,8 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                   <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
                        <Label>인원수</Label>
                        <Input
                          type="number"
@@ -1486,6 +1488,23 @@ export default function AdminPage() {
                          onChange={(e) => setEditForm(prev => ({...prev, party_size: parseInt(e.target.value) || 0}))}
                        />
                     </div>
+                    <div className="space-y-2">
+                       <Label>이메일 언어</Label>
+                       <Select
+                         value={editForm.email_language || 'en'}
+                         onValueChange={(v) => setEditForm(prev => ({...prev, email_language: v as Booking['email_language']}))}
+                       >
+                         <SelectTrigger className="w-full">
+                           <SelectValue />
+                         </SelectTrigger>
+                         {/* z-[70]: the Select portal must sit above this z-[60] modal */}
+                         <SelectContent className="z-[70]">
+                           <SelectItem value="en">English</SelectItem>
+                           <SelectItem value="fr">Français</SelectItem>
+                         </SelectContent>
+                       </Select>
+                    </div>
+                  </div>
 
                     <div className="space-y-2">
                        <Label>알레르기</Label>
