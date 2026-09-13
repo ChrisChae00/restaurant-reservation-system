@@ -13,6 +13,7 @@ vi.mock('@/lib/auth', () => ({
 vi.mock('@/lib/email', () => ({
   sendConfirmationEmail: vi.fn().mockResolvedValue(undefined),
   sendCancellationEmail: vi.fn().mockResolvedValue(undefined),
+  sendRejectionEmail: vi.fn().mockResolvedValue(undefined),
 }));
 
 const TEST_EMAIL_DOMAIN = '@capacitytest.example';
@@ -160,6 +161,39 @@ describe.skipIf(!process.env.SUPABASE_SERVICE_ROLE_KEY)(
 
       expect(response.status).toBe(200);
       expect((await response.json()).booking.party_size).toBe(12);
+    });
+
+    it('rejects a pending booking with the reason in the rejection email', async () => {
+      const { data: pending, error } = await supabase
+        .from('bookings')
+        .insert({ ...seedRow('rejected', 10, early.arrivalStart, early.slotEnd), status: 'pending' })
+        .select()
+        .single();
+      if (error) throw error;
+
+      const { sendRejectionEmail, sendCancellationEmail } = await import('@/lib/email');
+      const { PATCH } = await import('./route');
+      const response = await PATCH(
+        patch(pending.id, { status: 'cancelled', rejection_reason: '  Fully booked  ', updated_at: pending.updated_at }),
+        { params: Promise.resolve({ id: pending.id }) }
+      );
+
+      expect(response.status).toBe(200);
+      expect((await response.json()).booking.status).toBe('cancelled');
+      expect(sendRejectionEmail).toHaveBeenCalledWith(expect.objectContaining({ id: pending.id }), 'Fully booked');
+      expect(sendCancellationEmail).not.toHaveBeenCalled();
+    });
+
+    it('refuses to reject a booking that is no longer pending', async () => {
+      const edited = await seedPair(1, 10);
+
+      const { PATCH } = await import('./route');
+      const response = await PATCH(
+        patch(edited.id, { status: 'cancelled', rejection_reason: 'Fully booked', updated_at: edited.updated_at }),
+        { params: Promise.resolve({ id: edited.id }) }
+      );
+
+      expect(response.status).toBe(400);
     });
   }
 );

@@ -18,12 +18,14 @@ import {
   LogOut,
   LayoutDashboard,
   X,
+  ArrowLeft,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar, CalendarDayButton } from '@/components/ui/calendar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -166,6 +168,13 @@ export default function AdminPage() {
   const [chargeGuestCount, setChargeGuestCount] = useState<number>(0);
   const [useCustomAmount, setUseCustomAmount] = useState<boolean>(false);
   const [chargeCustomAmount, setChargeCustomAmount] = useState<string>('');
+
+  // Reject Modal State — step 1 writes the reason, step 2 (rejectPreview set) shows the email
+  const [rejectBooking, setRejectBooking] = useState<Booking | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejectPreview, setRejectPreview] = useState<{ to: string; subject: string; html: string } | null>(null);
+  const [rejectLoading, setRejectLoading] = useState(false);
+  const [rejectError, setRejectError] = useState<string | null>(null);
 
   // Logout handler
   const handleLogout = async () => {
@@ -568,6 +577,73 @@ export default function AdminPage() {
     }
   };
 
+  const handleOpenRejectModal = (booking: Booking) => {
+    setRejectBooking(booking);
+    setRejectReason('');
+    setRejectPreview(null);
+    setRejectError(null);
+  };
+
+  const handleCloseRejectModal = () => {
+    setRejectBooking(null);
+    setRejectPreview(null);
+  };
+
+  const handleRejectPreview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rejectBooking || !rejectReason.trim()) return;
+
+    setRejectLoading(true);
+    setRejectError(null);
+    try {
+      const response = await fetch(`/api/admin/bookings/${rejectBooking.id}/rejection-preview`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: rejectReason }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(result?.error || '미리보기 생성 실패');
+      setRejectPreview(result);
+    } catch (error) {
+      setRejectError(error instanceof Error ? error.message : '미리보기 생성 실패');
+    } finally {
+      setRejectLoading(false);
+    }
+  };
+
+  const handleRejectBooking = async () => {
+    if (!rejectBooking) return;
+
+    setRejectLoading(true);
+    setRejectError(null);
+    setChargeError(null);
+    setChargeSuccess(null);
+    try {
+      const response = await fetch(`/api/admin/bookings/${rejectBooking.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'cancelled',
+          rejection_reason: rejectReason,
+          updated_at: rejectBooking.updated_at,
+        }),
+      });
+      if (!response.ok) {
+        const result = await response.json().catch(() => null);
+        throw new Error(result?.error || '예약 거절 실패');
+      }
+
+      setChargeSuccess('예약이 거절되었습니다. 손님에게 거절 이메일이 발송되었습니다.');
+      handleCloseRejectModal();
+      fetchBookings();
+      fetchDashboardData(currentMonth, confirmedRangeFilter);
+    } catch (error) {
+      setRejectError(error instanceof Error ? error.message : '예약 거절 실패');
+    } finally {
+      setRejectLoading(false);
+    }
+  };
+
   const handleEditClick = (booking: Booking) => {
     setEditingBooking(booking);
     setEditForm({
@@ -580,6 +656,7 @@ export default function AdminPage() {
       slot_start: booking.slot_start,
       slot_end: booking.slot_end,
       allergy_info: booking.allergy_info,
+      email_language: booking.email_language,
     });
   };
 
@@ -1205,7 +1282,7 @@ export default function AdminPage() {
                                 </div>
                               )}
                             </div>
-                            <div className="mt-2 sm:mt-3 flex justify-end gap-1 sm:gap-2">
+                            <div className="mt-2 sm:mt-3 flex justify-end gap-2">
                                <Button
                                   size="sm"
                                   variant="outline"
@@ -1213,6 +1290,15 @@ export default function AdminPage() {
                                   onClick={() => handleEditClick(booking)}
                                >
                                   수정
+                               </Button>
+                               <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 sm:h-7 text-[10px] sm:text-xs text-red-500 hover:text-red-600 hover:bg-red-500/10 px-2 sm:px-3"
+                                  disabled={chargingId === booking.id}
+                                  onClick={() => handleOpenRejectModal(booking)}
+                               >
+                                  거절
                                </Button>
                                <Button
                                   size="sm"
@@ -1294,7 +1380,7 @@ export default function AdminPage() {
                                 </div>
                               )}
                             </div>
-                            <div className="mt-2 sm:mt-3 flex justify-end gap-1 sm:gap-2">
+                            <div className="mt-2 sm:mt-3 flex justify-end gap-2">
                                <Button 
                                   size="sm" 
                                   variant="outline"
@@ -1392,7 +1478,8 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                   <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
                        <Label>인원수</Label>
                        <Input
                          type="number"
@@ -1401,6 +1488,23 @@ export default function AdminPage() {
                          onChange={(e) => setEditForm(prev => ({...prev, party_size: parseInt(e.target.value) || 0}))}
                        />
                     </div>
+                    <div className="space-y-2">
+                       <Label>이메일 언어</Label>
+                       <Select
+                         value={editForm.email_language || 'en'}
+                         onValueChange={(v) => setEditForm(prev => ({...prev, email_language: v as Booking['email_language']}))}
+                       >
+                         <SelectTrigger className="w-full">
+                           <SelectValue />
+                         </SelectTrigger>
+                         {/* z-[70]: the Select portal must sit above this z-[60] modal */}
+                         <SelectContent className="z-[70]">
+                           <SelectItem value="en">English</SelectItem>
+                           <SelectItem value="fr">Français</SelectItem>
+                         </SelectContent>
+                       </Select>
+                    </div>
+                  </div>
 
                     <div className="space-y-2">
                        <Label>알레르기</Label>
@@ -1419,6 +1523,106 @@ export default function AdminPage() {
                   </Button>
                 </div>
               </form>
+            </Card>
+          </div>
+        )}
+
+        {/* Reject Modal (Overlay) — stacks above Quick View (z-50) like the Edit Modal */}
+        {rejectBooking && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <Card className={cn('w-full bg-background border-gold/20 max-h-[90vh] flex flex-col', rejectPreview ? 'max-w-2xl' : 'max-w-lg')}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  {rejectPreview && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 -ml-2"
+                      onClick={() => setRejectPreview(null)}
+                      disabled={rejectLoading}
+                      aria-label="뒤로가기"
+                      title="뒤로가기"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {rejectPreview ? '거절 이메일 미리보기' : '예약 거절'}
+                </CardTitle>
+                <CardDescription>
+                  {rejectBooking.first_name} {rejectBooking.last_name}님 · {format(parseISO(rejectBooking.booking_date), 'MMM d')} {formatTime(rejectBooking.slot_start)} · {rejectBooking.party_size}명
+                </CardDescription>
+              </CardHeader>
+
+              {!rejectPreview ? (
+                <form onSubmit={handleRejectPreview}>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="rejectReason">거절 사유</Label>
+                      <Textarea
+                        id="rejectReason"
+                        rows={4}
+                        maxLength={500}
+                        autoFocus
+                        placeholder={rejectBooking.email_language === 'fr'
+                          ? 'Ex. : Nous sommes complets pour cette date.'
+                          : 'e.g. We are fully booked on this date.'}
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Globe className="h-3 w-3 text-gold" />
+                          손님 이메일 언어: {rejectBooking.email_language === 'fr' ? 'Français' : 'English'} — 이 언어로 작성해주세요
+                        </span>
+                        <span>{rejectReason.length}/500</span>
+                      </div>
+                    </div>
+                    {rejectError && <p className="text-sm text-red-500">{rejectError}</p>}
+                  </CardContent>
+                  <div className="p-6 pt-0 flex justify-end gap-3">
+                    <Button type="button" variant="ghost" onClick={handleCloseRejectModal}>취소</Button>
+                    <Button type="submit" disabled={rejectLoading || !rejectReason.trim()}>
+                      {rejectLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      이메일 미리보기
+                    </Button>
+                  </div>
+                </form>
+              ) : (
+                <>
+                  <CardContent className="space-y-3 overflow-y-auto">
+                    <div className="p-3 bg-secondary/30 rounded-lg space-y-1 text-sm">
+                      <p className="text-muted-foreground">받는 사람: <span className="text-foreground font-medium break-all">{rejectPreview.to}</span></p>
+                      <p className="text-muted-foreground">제목: <span className="text-foreground font-medium">{rejectPreview.subject}</span></p>
+                    </div>
+                    {/* sandbox with no permissions: the email HTML renders but cannot run scripts */}
+                    <iframe
+                      title="거절 이메일 미리보기"
+                      sandbox=""
+                      srcDoc={rejectPreview.html}
+                      className="w-full h-[45vh] rounded-lg border border-gold/20 bg-white"
+                    />
+                    <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-400 flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 shrink-0" />
+                      보내면 예약이 취소 처리되고 이 이메일이 손님에게 발송됩니다.
+                    </div>
+                    {rejectError && <p className="text-sm text-red-500">{rejectError}</p>}
+                  </CardContent>
+                  <div className="p-6 pt-3 flex justify-end gap-3">
+                    <Button type="button" variant="ghost" onClick={() => setRejectPreview(null)} disabled={rejectLoading}>
+                      수정하기
+                    </Button>
+                    <Button
+                      onClick={handleRejectBooking}
+                      disabled={rejectLoading}
+                      className="bg-red-600 hover:bg-red-700 text-white"
+                    >
+                      {rejectLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <XCircle className="mr-2 h-4 w-4" />}
+                      거절 이메일 보내기
+                    </Button>
+                  </div>
+                </>
+              )}
             </Card>
           </div>
         )}
