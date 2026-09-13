@@ -783,6 +783,121 @@ function generateFrenchCancellationEmail(booking: Booking): string {
 `;
 }
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Build rejection email (English OR French) for a pending request the admin declines.
+ * Shared by the sender and the admin preview so the preview is exactly what gets sent.
+ */
+export function buildRejectionEmail(booking: Booking, reason: string): { subject: string; html: string } {
+  const lang = booking.email_language || 'en';
+  const bookingRef = booking.booking_reference || booking.id?.slice(0, 8).toUpperCase() || '';
+  const t = lang === 'en'
+    ? {
+        subject: `Reservation Request Declined [#${bookingRef}] – ${RESTAURANT_NAME}`,
+        title: 'Reservation Request Update',
+        greeting: `Dear ${escapeHtml(booking.first_name)},`,
+        intro: 'Thank you for your interest in dining with us. Unfortunately, we are unable to accept your reservation request.',
+        details: 'Requested Reservation',
+        date: 'Date', time: 'Time', guests: 'Number of Guests',
+        dateValue: formatDateEn(booking.booking_date),
+        reason: 'Message from the restaurant',
+        noCharge: '✓ No charges have been applied to your card.',
+        contact: 'If you have any questions, please feel free to contact us:',
+        closing: 'We hope to welcome you on another occasion.',
+      }
+    : {
+        subject: `Demande de réservation refusée [#${bookingRef}] – ${RESTAURANT_NAME}`,
+        title: 'Mise à jour de votre demande',
+        greeting: `Cher/Chère ${escapeHtml(booking.first_name)},`,
+        intro: "Merci de l'intérêt que vous portez à notre restaurant. Malheureusement, nous ne pouvons pas accepter votre demande de réservation.",
+        details: 'Réservation demandée',
+        date: 'Date', time: 'Heure', guests: 'Nombre de convives',
+        dateValue: formatDateFr(booking.booking_date),
+        reason: 'Message du restaurant',
+        noCharge: '✓ Aucuns frais n\'ont été appliqués à votre carte.',
+        contact: "Si vous avez des questions, n'hésitez pas à nous contacter :",
+        closing: "Nous espérons avoir le plaisir de vous accueillir une prochaine fois.",
+      };
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; color: #333; max-width: 650px; margin: 0 auto; padding: 20px; line-height: 1.6; }
+    .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #d4af37; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+    .header h1 { margin: 0; font-size: 24px; }
+    .content { padding: 25px; background: #f8f9fa; border: 1px solid #e9ecef; }
+    .details-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #d4af37; }
+    .details-box p { margin: 8px 0; }
+    .reason-box { background: #fff8e1; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #d4af37; white-space: pre-wrap; }
+    .notice-box { background: #d4edda; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #28a745; }
+    .contact { margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 8px; }
+    .footer { text-align: center; padding: 20px; background: #1a1a2e; color: #d4af37; border-radius: 0 0 10px 10px; }
+    a { color: #d4af37; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>${t.title}</h1>
+  </div>
+
+  <div class="content">
+    <p>${t.greeting}</p>
+    <p>${t.intro}</p>
+
+    <div class="details-box">
+      <div style="font-weight: bold; color: #1a1a2e; margin-bottom: 10px; border-bottom: 2px solid #d4af37; padding-bottom: 5px;">📋 ${t.details}</div>
+      <p><strong>${t.date}:</strong> ${t.dateValue}</p>
+      <p><strong>${t.time}:</strong> ${formatTime(booking.slot_start)} - ${formatTime(booking.slot_end)}</p>
+      <p><strong>${t.guests}:</strong> ${booking.party_size}</p>
+    </div>
+
+    <div class="reason-box"><strong>${t.reason}</strong>
+${escapeHtml(reason)}</div>
+
+    <div class="notice-box"><strong>${t.noCharge}</strong></div>
+
+    <div class="contact">
+      <p>${t.contact}</p>
+      <p>Email : <a href="mailto:lunagroupreservation@gmail.com">lunagroupreservation@gmail.com</a></p>
+      <p>📞 514-834-8710 (Français)<br/>📞 514-224-8710 (English)</p>
+    </div>
+
+    <p style="margin-top: 20px;">${t.closing}</p>
+    <p><em>– ${RESTAURANT_NAME}</em></p>
+  </div>
+
+  <div class="footer">
+    <strong>${RESTAURANT_NAME}</strong>
+  </div>
+</body>
+</html>
+`;
+
+  return { subject: t.subject, html };
+}
+
+export async function sendRejectionEmail(booking: Booking, reason: string): Promise<void> {
+  const { subject, html } = buildRejectionEmail(booking, reason);
+  await sendMailWithRetry({
+    from: `"${RESTAURANT_NAME}" <${RESTAURANT_EMAIL}>`,
+    to: booking.email,
+    subject,
+    html,
+  });
+  console.log('Rejection email sent successfully to:', booking.email);
+}
+
 /**
  * Send no-show charge notification email to customer (English OR French)
  * Sent after admin charges the no-show penalty

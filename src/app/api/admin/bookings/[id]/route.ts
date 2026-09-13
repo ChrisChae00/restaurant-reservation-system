@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
-import { sendConfirmationEmail, sendCancellationEmail } from '@/lib/email';
+import { sendConfirmationEmail, sendCancellationEmail, sendRejectionEmail } from '@/lib/email';
 import { requireAuth } from '@/lib/auth';
 import { getConcurrentGuests } from '@/lib/availability';
 import { MAX_CAPACITY } from '@/lib/booking-rules';
@@ -11,6 +11,7 @@ import type { BookingStatus } from '@/types/booking';
 const PG_UNIQUE_VIOLATION = '23505';
 const PG_CHECK_VIOLATION = '23514';
 const SLOT_CONFLICT_INDEX = 'idx_bookings_one_team_per_slot';
+const MAX_REJECTION_REASON = 500;
 
 const VALID_STATUSES: BookingStatus[] = [
   'pending',
@@ -67,6 +68,7 @@ export async function PATCH(
       // Set only after the admin has seen the conflicting-booking summary and confirmed
       // they want to overbook the slot anyway.
       force_overbook,
+      rejection_reason,
     } = body;
 
     if (status !== undefined && !VALID_STATUSES.includes(status)) {
@@ -100,8 +102,19 @@ export async function PATCH(
       );
     }
 
-    // 1. Cancel without charge
+    // 1. Cancel without charge. With a rejection_reason this is the admin declining a
+    // pending request, and the guest gets the rejection email carrying that reason instead.
     if (status === 'cancelled') {
+      const rejectionReason = typeof rejection_reason === 'string' ? rejection_reason.trim() : '';
+      if (rejection_reason !== undefined) {
+        if (currentBooking.status !== 'pending') {
+          return NextResponse.json({ error: 'Only pending bookings can be rejected' }, { status: 400 });
+        }
+        if (!rejectionReason || rejectionReason.length > MAX_REJECTION_REASON) {
+          return NextResponse.json({ error: 'Invalid rejection reason' }, { status: 400 });
+        }
+      }
+
       const { data, error } = await supabase
         .from('bookings')
         .update({ status: 'cancelled' })
@@ -115,9 +128,13 @@ export async function PATCH(
       }
 
       try {
-        await sendCancellationEmail(data);
+        if (rejectionReason) {
+          await sendRejectionEmail(data, rejectionReason);
+        } else {
+          await sendCancellationEmail(data);
+        }
       } catch (err) {
-        console.error('Failed to send cancellation email:', err);
+        console.error('Failed to send cancellation/rejection email:', err);
         await recordEmailFailure(supabase, id, err);
       }
 
