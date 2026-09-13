@@ -817,7 +817,7 @@ export function buildRejectionEmail(booking: Booking, reason: string): { subject
         subject: `Demande de réservation refusée [#${bookingRef}] – ${RESTAURANT_NAME}`,
         title: 'Mise à jour de votre demande',
         greeting: `Cher/Chère ${escapeHtml(booking.first_name)},`,
-        intro: "Merci de l'intérêt que vous portez à notre restaurant. Malheureusement, nous ne pouvons pas accepter votre demande de réservation.",
+        intro: "Merci de votre intérêt à venir dîner chez nous. Malheureusement, nous ne sommes pas en mesure d’accepter votre demande de réservation.",
         details: 'Réservation demandée',
         date: 'Date', time: 'Heure', guests: 'Nombre de convives',
         dateValue: formatDateFr(booking.booking_date),
