@@ -203,12 +203,14 @@ npm run test:coverage # with coverage report
 
 - `e2e/booking-flow.spec.ts` — cross-device layout regression test on
   [Playwright](https://playwright.dev/). Walks the booking flow from party size to the
-  Stripe card field on five device profiles (iPhone SE 320px and iPhone 13 390px on WebKit,
-  Pixel 7 412px on Chromium, iPad Mini 768px, desktop 1440px). At each step it fails on
+  Stripe card field on seven profiles across Chromium, WebKit, and Firefox: iPhone SE 320px,
+  iPhone 13 390px, and iPad Mini 768px on WebKit; Pixel 7 412px and desktop 1440px on
+  Chromium; and Firefox at 390px and 1440px (Playwright has no mobile emulation for
+  Firefox, so both run as desktop Firefox). At each step it fails on
   horizontal overflow, elements past the viewport edge, overlapping time-slot text, and
   buttons below the WCAG 2.2 24px target size. Availability is mocked and the test stops
   before card entry, so it writes nothing to Stripe or the database. Run with
-  `npm run test:e2e` (first time: `npx playwright install chromium webkit`). When it was
+  `npm run test:e2e` (first time: `npx playwright install chromium webkit firefox`). When it was
   first run, it caught four mobile-only defects: a 600px decorative glow that made the page
   scroll sideways on iPhone and made Android Chrome zoom the whole page out, arrival and
   departure times overlapping at 320px, the email-language toggle overflowing the card at

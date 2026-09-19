@@ -14,6 +14,10 @@ export default defineConfig({
     { name: 'pixel-7', use: { ...devices['Pixel 7'] } }, // 412px, Chromium
     { name: 'ipad-mini', use: { ...devices['iPad Mini'] } }, // 768px, WebKit
     { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } } },
+    // Firefox has no mobile emulation in Playwright, so it runs as a desktop browser at a
+    // phone-sized and a desktop viewport.
+    { name: 'firefox-narrow', use: { ...devices['Desktop Firefox'], viewport: { width: 390, height: 844 } } },
+    { name: 'firefox-desktop', use: { ...devices['Desktop Firefox'], viewport: { width: 1440, height: 900 } } },
   ],
   webServer: {
     command: `next dev -p ${PORT}`,
