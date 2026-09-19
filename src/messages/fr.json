@@ -54,10 +54,7 @@
       "lastName": "Nom de Famille",
       "email": "Adresse Courriel",
       "phone": "Numéro de Téléphone",
-      "firstNamePlaceholder": "Jean",
-      "lastNamePlaceholder": "Dupont",
-      "emailPlaceholder": "jean@exemple.com",
-      "phonePlaceholder": "(514) 555-0123"
+      "phoneInvalid": "Veuillez entrer un numéro de téléphone valide à 10 chiffres"
     },
     "depositNotice": "La réservation est confirmée uniquement après l'étape finale.",
     "emailLanguage": {

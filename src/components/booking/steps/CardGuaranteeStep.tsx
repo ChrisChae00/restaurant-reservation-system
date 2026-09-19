@@ -16,6 +16,7 @@ import {
   useElements,
 } from '@stripe/react-stripe-js';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 // Initialize Stripe
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
@@ -39,6 +40,7 @@ interface CardGuaranteeStepProps {
 
 // Stripe Card Element styling
 const cardElementOptions = {
+  hideIcon: true, // our own icon sits outside the iframe, matching the other inputs
   style: {
     base: {
       fontSize: '16px',
@@ -76,6 +78,7 @@ function CardGuaranteeInner({
   const elements = useElements();
   const [cardError, setCardError] = useState<string | null>(null);
   const [cardComplete, setCardComplete] = useState(false);
+  const [cardFocused, setCardFocused] = useState(false);
   const [processing, setProcessing] = useState(false);
 
   const formatTime = (time: string) => {
@@ -178,7 +181,7 @@ function CardGuaranteeInner({
             <button 
               type="button"
               onClick={onGoToDetails}
-              className="text-xs text-gold hover:text-gold-light underline"
+              className="-mr-2 px-2 py-1 text-xs text-gold hover:text-gold-light underline"
             >
               Edit
             </button>
@@ -223,22 +226,46 @@ function CardGuaranteeInner({
 
         {/* Credit Card Input */}
         <div className="space-y-2">
-          <Label className="flex items-center gap-2">
-            <CreditCard className="h-4 w-4 text-gold" />
-            {t('card.label')}
-          </Label>
-          <div className="p-4 rounded-lg bg-input border border-gold/20">
-            <CardElement
-              options={cardElementOptions}
-              onChange={(e) => {
-                setCardComplete(e.complete);
-                if (e.error) {
-                  setCardError(e.error.message);
-                } else {
-                  setCardError(null);
-                }
-              }}
+          {/* Matches FloatingInput. The card field is a Stripe iframe we can't style, so the
+              border and label live outside it. The label stays floated because Stripe draws
+              its own "Card number / MM/YY / CVC" placeholders inside. */}
+          <div className="relative">
+            <div
+              className={cn(
+                'rounded-lg border py-3.5 pl-11 pr-4 transition-colors',
+                cardFocused ? 'border-gold ring-[3px] ring-gold/20' : 'border-gold/20',
+                cardError && 'border-destructive'
+              )}
+            >
+              <CardElement
+                options={cardElementOptions}
+                onFocus={() => setCardFocused(true)}
+                onBlur={() => setCardFocused(false)}
+                onChange={(e) => {
+                  setCardComplete(e.complete);
+                  if (e.error) {
+                    setCardError(e.error.message);
+                  } else {
+                    setCardError(null);
+                  }
+                }}
+              />
+            </div>
+            <CreditCard
+              aria-hidden
+              className={cn(
+                'pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 transition-colors',
+                cardFocused ? 'text-gold' : 'text-muted-foreground'
+              )}
             />
+            <span
+              className={cn(
+                'pointer-events-none absolute left-3 top-0 -translate-y-1/2 bg-card px-1 text-xs transition-colors',
+                cardFocused ? 'text-gold' : 'text-muted-foreground'
+              )}
+            >
+              {t('card.label')}
+            </span>
           </div>
           {cardError && (
             <p className="text-sm text-destructive flex items-center gap-1">

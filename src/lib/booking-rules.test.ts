@@ -6,6 +6,7 @@ import {
   getPartySizeCategory,
   getSlotsForDate,
   isRestaurantOpen,
+  PHONE_PATTERN,
   slotsOverlap,
 } from './booking-rules';
 
@@ -131,5 +132,23 @@ describe('slotsOverlap', () => {
     for (const slot of getSlotsForDate(FRIDAY)) {
       expect(slotsOverlap(slot.arrivalStart, slot.slotEnd, slot.arrivalStart, slot.slotEnd)).toBe(true);
     }
+  });
+});
+
+describe('PHONE_PATTERN', () => {
+  it('accepts a 10-digit Canadian number', () => {
+    expect(PHONE_PATTERN.test('4379089907')).toBe(true);
+    expect(PHONE_PATTERN.test('5145551234')).toBe(true);
+  });
+
+  it('rejects numbers with the wrong digit count', () => {
+    expect(PHONE_PATTERN.test('4379089907123123')).toBe(false);
+    expect(PHONE_PATTERN.test('437908990')).toBe(false);
+    expect(PHONE_PATTERN.test('14379089907')).toBe(false);
+  });
+
+  it('rejects area codes and exchanges starting with 0 or 1', () => {
+    expect(PHONE_PATTERN.test('1379089907')).toBe(false);
+    expect(PHONE_PATTERN.test('4371089907')).toBe(false);
   });
 });

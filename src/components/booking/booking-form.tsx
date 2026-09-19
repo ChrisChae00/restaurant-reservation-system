@@ -1,7 +1,7 @@
 'use client';
 
 // Main 6-Step Booking Form Orchestrator
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   LandingStep,
@@ -14,6 +14,7 @@ import {
 } from './steps';
 import { BOOKING_STEPS, type BookingStep, type ConfirmedBooking, type EmailLanguage } from '@/types/booking';
 import { format } from 'date-fns';
+import { MIN_PARTY_SIZE } from '@/lib/booking-rules';
 
 interface FormData {
   // Step 1
@@ -41,7 +42,7 @@ interface FormData {
 }
 
 const initialFormData: FormData = {
-  partySize: 0,
+  partySize: MIN_PARTY_SIZE,
   agreedToRules: false,
   date: undefined,
   slotId: '',
@@ -66,6 +67,27 @@ export function BookingForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [confirmedBooking, setConfirmedBooking] = useState<ConfirmedBooking | null>(null);
+  const topRef = useRef<HTMLDivElement>(null);
+  const shownStep = useRef(step);
+
+  const scrollToTop = () => {
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    topRef.current?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+  };
+
+  // Each step renders at the same spot, so on a phone the next step would open wherever the
+  // guest had scrolled to. Bring the progress bar back into view once the new step renders:
+  // WebKit cancels a smooth scroll started before the page height changes.
+  useEffect(() => {
+    if (shownStep.current === step) return;
+    shownStep.current = step;
+    scrollToTop();
+  }, [step]);
+
+  // A submit error renders above the card step, out of view on a phone.
+  useEffect(() => {
+    if (submitError) scrollToTop();
+  }, [submitError]);
 
   // Step navigation
   const currentStepIndex = BOOKING_STEPS.indexOf(step as BookingStep);
@@ -139,7 +161,7 @@ export function BookingForm() {
         slotEnd: result.booking.slotEnd,
       });
       setStep('confirmation');
-
+  
     } catch (error) {
       console.error('Booking error:', error);
       setSubmitError(error instanceof Error ? error.message : 'Failed to create booking');
@@ -156,8 +178,8 @@ export function BookingForm() {
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto">
-      {/* Progress Bar */}
+    // scroll-mt clears the fixed header, which wraps to two lines on narrow phones
+    <div ref={topRef} className="w-full max-w-2xl mx-auto scroll-mt-28">
       {/* Progress Bar */}
       {step !== 'confirmation' && (
         <div className="mb-8 space-y-2">

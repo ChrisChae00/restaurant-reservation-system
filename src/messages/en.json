@@ -54,10 +54,7 @@
       "lastName": "Last Name",
       "email": "Email Address",
       "phone": "Phone Number",
-      "firstNamePlaceholder": "John",
-      "lastNamePlaceholder": "Smith",
-      "emailPlaceholder": "john@example.com",
-      "phonePlaceholder": "(514) 555-0123"
+      "phoneInvalid": "Please enter a valid 10-digit phone number"
     },
     "depositNotice": "Reservation is confirmed only after completing the final step.",
     "emailLanguage": {

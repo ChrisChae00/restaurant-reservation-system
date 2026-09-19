@@ -30,7 +30,7 @@ export default async function Home() {
       {/* Hero Section */}
       <section className="relative pt-26 pb-12 px-6 flex-none">
         {/* Subtle Background Glow */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-gold/5 rounded-full blur-3xl -z-10" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] max-w-full h-[400px] bg-gold/5 rounded-full blur-3xl -z-10" />
 
         <div className="container mx-auto text-center max-w-2xl space-y-6">
           <div>
