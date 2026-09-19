@@ -54,10 +54,7 @@
       "lastName": "성",
       "email": "이메일 주소",
       "phone": "전화번호",
-      "firstNamePlaceholder": "길동",
-      "lastNamePlaceholder": "홍",
-      "emailPlaceholder": "example@email.com",
-      "phonePlaceholder": "(514) 555-0123"
+      "phoneInvalid": "올바른 10자리 전화번호를 입력해 주세요"
     },
     "depositNotice": "마지막 단계까지 완료해야 예약이 확정됩니다.",
     "emailLanguage": {

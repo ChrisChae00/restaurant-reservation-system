@@ -201,6 +201,19 @@ npm run test:coverage # with coverage report
 - `scripts/charge-pipeline-benchmark.test.ts` — the charge pipeline latency benchmark above.
   Also excluded from `npm test`; run with `npx vitest run scripts/charge-pipeline-benchmark.test.ts`.
 
+- `e2e/booking-flow.spec.ts` — cross-device layout regression test on
+  [Playwright](https://playwright.dev/). Walks the booking flow from party size to the
+  Stripe card field on five device profiles (iPhone SE 320px and iPhone 13 390px on WebKit,
+  Pixel 7 412px on Chromium, iPad Mini 768px, desktop 1440px). At each step it fails on
+  horizontal overflow, elements past the viewport edge, overlapping time-slot text, and
+  buttons below the WCAG 2.2 24px target size. Availability is mocked and the test stops
+  before card entry, so it writes nothing to Stripe or the database. Run with
+  `npm run test:e2e` (first time: `npx playwright install chromium webkit`). When it was
+  first run, it caught four mobile-only defects: a 600px decorative glow that made the page
+  scroll sideways on iPhone and made Android Chrome zoom the whole page out, arrival and
+  departure times overlapping at 320px, the email-language toggle overflowing the card at
+  320px, and a 22×16px "Edit" button.
+
 `backend/` has its own suite (`cd backend && npm test`), covering Stripe error
 classification (including the cross-module `instanceof` regression), the internal-auth
 guard, and duplicate-charge concurrency (real Stripe test mode + Supabase).

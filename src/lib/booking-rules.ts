@@ -51,6 +51,9 @@ export const MAX_PARTY_SIZE = 14;
 export const SMALL_GROUP_THRESHOLD = 6; // 1-6 goes to Libro
 export const LARGE_GROUP_THRESHOLD = 15; // 15+ contact us
 
+// Canadian (NANP) number as 10 digits: area code and exchange can't start with 0 or 1.
+export const PHONE_PATTERN = /^[2-9]\d{2}[2-9]\d{6}$/;
+
 // External booking URL for small groups
 export const LIBRO_BOOKING_URL = 'https://booking.libroreserve.com/22e6f18e91fac65/QC015718518987/seat';
 

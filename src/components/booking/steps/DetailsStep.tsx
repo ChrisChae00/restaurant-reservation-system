@@ -3,13 +3,13 @@
 // Step 2: Details - Date, Time Slot, and Contact Information
 import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
-import { CalendarDays, Clock, User, Mail, Phone, Loader2, AlertTriangle, Globe } from 'lucide-react';
+import { CalendarDays, Clock, Loader2, AlertTriangle, Globe, User, Mail, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
-import { Input } from '@/components/ui/input';
+import { FloatingInput } from '@/components/ui/floating-input';
 import { Label } from '@/components/ui/label';
-import { isRestaurantOpen, formatTimeRange, RESTAURANT_CONTACT } from '@/lib/booking-rules';
+import { isRestaurantOpen, formatTimeRange, RESTAURANT_CONTACT, PHONE_PATTERN } from '@/lib/booking-rules';
 import { format, addDays, isBefore, startOfDay, endOfMonth, addMonths, startOfMonth } from 'date-fns';
 import type { SlotAvailability, EmailLanguage } from '@/types/booking';
 
@@ -132,6 +132,7 @@ export function DetailsStep({
   };
 
   const [emailTouched, setEmailTouched] = useState(false);
+  const [phoneTouched, setPhoneTouched] = useState(false);
 
   // Email validation regex
   const isValidEmail = (email: string) => {
@@ -139,6 +140,7 @@ export function DetailsStep({
   };
   
   const isEmailValid = isValidEmail(email);
+  const isPhoneValid = PHONE_PATTERN.test(phone);
 
   const isFormValid = 
     date && 
@@ -146,7 +148,7 @@ export function DetailsStep({
     firstName.trim().length > 0 && 
     lastName.trim().length > 0 && 
     isEmailValid &&
-    phone.length >= 10;
+    isPhoneValid;
 
   return (
     <Card className="glass-card border-gold/20">
@@ -250,13 +252,13 @@ export function DetailsStep({
                           : 'opacity-50 cursor-not-allowed'
                       }`}
                     >
-                      <div className="flex items-center justify-between w-full max-w-md gap-4">
+                      <div className="flex flex-wrap items-center justify-between w-full max-w-md gap-x-4 gap-y-2">
                           <div className="flex flex-col items-start min-w-[30%]">
                               <span className="text-[10px] uppercase tracking-widest opacity-60 mb-1">{t('time.arrival')}</span>
                               <span className="text-xl font-light tracking-tight">{times.arrival}</span>
                           </div>
 
-                          <div className="flex flex-col items-end min-w-[30%]">
+                          <div className="ml-auto flex flex-col items-end min-w-[30%]">
                               <span className="text-[10px] uppercase tracking-widest opacity-60 mb-1">{t('time.departure')}</span>
                               <span className="text-xl font-light tracking-tight">{times.departure}</span>
                           </div>
@@ -287,48 +289,35 @@ export function DetailsStep({
             <Label className="text-base font-medium">{t('contact.title')}</Label>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="firstName" className="flex items-center gap-1 text-sm">
-                  <User className="h-3 w-3 text-gold" />
-                  {t('contact.firstName')}
-                </Label>
-                <Input
-                  id="firstName"
-                  value={firstName}
-                  onChange={(e) => onContactChange('firstName', e.target.value)}
-                  placeholder={t('contact.firstNamePlaceholder')}
-                  className="bg-input border-gold/20 focus:border-gold"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName" className="text-sm">
-                  {t('contact.lastName')}
-                </Label>
-                <Input
-                  id="lastName"
-                  value={lastName}
-                  onChange={(e) => onContactChange('lastName', e.target.value)}
-                  placeholder={t('contact.lastNamePlaceholder')}
-                  className="bg-input border-gold/20 focus:border-gold"
-                />
-              </div>
+              <FloatingInput
+                id="firstName"
+                icon={User}
+                label={t('contact.firstName')}
+                autoComplete="given-name"
+                value={firstName}
+                onChange={(e) => onContactChange('firstName', e.target.value)}
+              />
+              <FloatingInput
+                id="lastName"
+                icon={User}
+                label={t('contact.lastName')}
+                autoComplete="family-name"
+                value={lastName}
+                onChange={(e) => onContactChange('lastName', e.target.value)}
+              />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email" className="flex items-center gap-1 text-sm">
-                <Mail className="h-3 w-3 text-gold" />
-                {t('contact.email')}
-              </Label>
-              <Input
+              <FloatingInput
                 id="email"
+                icon={Mail}
                 type="email"
+                label={t('contact.email')}
+                autoComplete="email"
                 value={email}
                 onChange={(e) => onContactChange('email', e.target.value)}
                 onBlur={() => setEmailTouched(true)}
-                placeholder={t('contact.emailPlaceholder')}
-                className={`bg-input border-gold/20 focus:border-gold ${
-                  emailTouched && !isEmailValid ? 'border-destructive focus:border-destructive' : ''
-                }`}
+                aria-invalid={emailTouched && !isEmailValid}
               />
               {emailTouched && !isEmailValid && (
                 <p className="text-xs text-destructive animate-in fade-in slide-in-from-top-1">
@@ -339,7 +328,7 @@ export function DetailsStep({
 
             {/* Email Language Selection - Compact & Inline */}
             <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1">
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                  <span className="text-xs text-muted-foreground whitespace-nowrap">{t('emailLanguage.label')}:</span>
                  <div className="flex gap-2">
                     <label className={`cursor-pointer px-3 py-1 rounded-md text-xs font-medium transition-all border ${
@@ -380,13 +369,12 @@ export function DetailsStep({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone" className="flex items-center gap-1 text-sm">
-                <Phone className="h-3 w-3 text-gold" />
-                {t('contact.phone')}
-              </Label>
-              <Input
+              <FloatingInput
                 id="phone"
+                icon={Phone}
                 type="tel"
+                label={t('contact.phone')}
+                autoComplete="tel-national"
                 inputMode="numeric"
                 pattern="[0-9]*"
                 value={phone}
@@ -394,9 +382,14 @@ export function DetailsStep({
                   const value = e.target.value.replace(/[^0-9]/g, '');
                   onContactChange('phone', value);
                 }}
-                placeholder={t('contact.phonePlaceholder')}
-                className="bg-input border-gold/20 focus:border-gold"
+                onBlur={() => setPhoneTouched(true)}
+                aria-invalid={phoneTouched && !isPhoneValid}
               />
+              {phoneTouched && !isPhoneValid && (
+                <p className="text-xs text-destructive animate-in fade-in slide-in-from-top-1">
+                  {t('contact.phoneInvalid')}
+                </p>
+              )}
             </div>
 
             <p className="text-xs text-muted-foreground text-center pt-2">

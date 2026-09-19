@@ -5,6 +5,7 @@ import {
   MIN_PARTY_SIZE,
   MAX_PARTY_SIZE,
   NO_SHOW_FEE_PER_PERSON as NO_SHOW_FEE_PER_PERSON_CAD,
+  PHONE_PATTERN,
 } from '@/lib/booking-rules';
 
 // HTML sanitization helper to prevent XSS
@@ -42,11 +43,7 @@ export const detailsSchema = z.object({
   firstName: safeString(1, 50),
   lastName: safeString(1, 50),
   email: z.string().email('Please enter a valid email address'),
-  phone: z
-    .string()
-    .min(10, 'Please enter a valid phone number')
-    .max(20, 'Phone number is too long')
-    .regex(/^[\d\s\-\+\(\)]+$/, 'Invalid phone number format'),
+  phone: z.string().regex(PHONE_PATTERN, 'Please enter a valid 10-digit phone number'),
 });
 
 // Step 3: Menu Policy validation
