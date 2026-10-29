@@ -7,6 +7,7 @@ import {
   NO_SHOW_FEE_PER_PERSON as NO_SHOW_FEE_PER_PERSON_CAD,
   PHONE_PATTERN,
 } from '@/lib/booking-rules';
+import { VISIT_PURPOSES } from '@/types/booking';
 
 // HTML sanitization helper to prevent XSS
 const sanitizeHtml = (str: string) => str
@@ -118,6 +119,7 @@ export const createBookingRequestSchema = z.object({
   slotEnd: z.string().regex(/^\d{2}:\d{2}$/),
   allergyInfo: z.string().max(1000).transform(sanitizeHtml).optional().nullable(),
   emailLanguage: z.enum(['en', 'fr']).optional(),
+  visitPurpose: z.enum(VISIT_PURPOSES),
   // The card identity is resolved server-side from this SetupIntent. Accepting the customer
   // and payment-method IDs directly let a caller attach someone else's saved card to their
   // own booking, which would charge that person for the no-show.

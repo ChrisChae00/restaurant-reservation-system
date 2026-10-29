@@ -74,6 +74,7 @@ describe.skipIf(!process.env.SUPABASE_SERVICE_ROLE_KEY)('POST /api/bookings inte
         slotStart: '17:15', // Invalid forged start time
         slotEnd: '19:45',   // Invalid forged end time
         setupIntentId: 'seti_test',
+        visitPurpose: 'family_reunion',
       }),
     });
 
@@ -104,6 +105,7 @@ describe.skipIf(!process.env.SUPABASE_SERVICE_ROLE_KEY)('POST /api/bookings inte
         slotStart: slot.arrivalStart,
         slotEnd: slot.slotEnd,
         setupIntentId: 'seti_test',
+        visitPurpose: 'family_reunion',
       }),
     });
 
@@ -130,6 +132,7 @@ describe.skipIf(!process.env.SUPABASE_SERVICE_ROLE_KEY)('POST /api/bookings inte
         slotStart: slot.arrivalStart,
         slotEnd: slot.slotEnd,
         setupIntentId: 'seti_test',
+        visitPurpose: 'family_reunion',
       }),
     });
 
@@ -159,6 +162,7 @@ describe.skipIf(!process.env.SUPABASE_SERVICE_ROLE_KEY)('POST /api/bookings inte
         slotStart: lateSlot!.arrivalStart,
         slotEnd: lateSlot!.slotEnd,
         setupIntentId: 'seti_test',
+        visitPurpose: 'family_reunion',
       }),
     });
 
@@ -194,6 +198,7 @@ describe.skipIf(!process.env.SUPABASE_SERVICE_ROLE_KEY)('POST /api/bookings inte
             slotStart: slot.arrivalStart,
             slotEnd: slot.slotEnd,
             setupIntentId: 'seti_test',
+            visitPurpose: 'family_reunion',
           }),
         })
       );

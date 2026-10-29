@@ -3,7 +3,7 @@
 
 import nodemailer from 'nodemailer';
 import { randomUUID } from 'crypto';
-import type { Booking } from '@/types/booking';
+import { VISIT_PURPOSE_KO, type Booking } from '@/types/booking';
 
 const RESTAURANT_EMAIL = 'lunagroupreservation@gmail.com';
 const RESTAURANT_NAME = 'Restaurant Coréen Luna';
@@ -199,6 +199,7 @@ export async function sendNewReservationNotification(booking: Booking): Promise<
 - 날짜: ${formatDateKo(booking.booking_date)}
 - 시간: ${formatTime(booking.slot_start)} - ${formatTime(booking.slot_end)}
 - 인원수: ${booking.party_size}명
+- 방문 목적: ${booking.visit_purpose ? VISIT_PURPOSE_KO[booking.visit_purpose] : '미선택'}
 - 알러지: ${booking.allergy_info || '없음'}
 
 ────────────────────────────────

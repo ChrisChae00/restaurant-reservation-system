@@ -67,6 +67,8 @@ test('booking flow stays usable from party size through card entry', async ({ pa
     arrival.top < departure.bottom && departure.top < arrival.bottom;
   expect(overlaps, 'arrival and departure times overlap').toBe(false);
 
+  await page.getByText('Family Reunion').click();
+
   await page.fill('#firstName', 'Test');
   await page.fill('#lastName', 'Guest');
   await page.fill('#email', 'guest@example.com');

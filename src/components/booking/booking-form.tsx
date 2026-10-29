@@ -12,7 +12,7 @@ import {
   CardGuaranteeStep,
   ConfirmationStep,
 } from './steps';
-import { BOOKING_STEPS, type BookingStep, type ConfirmedBooking, type EmailLanguage } from '@/types/booking';
+import { BOOKING_STEPS, type BookingStep, type ConfirmedBooking, type EmailLanguage, type VisitPurpose } from '@/types/booking';
 import { format } from 'date-fns';
 import { MIN_PARTY_SIZE } from '@/lib/booking-rules';
 
@@ -30,6 +30,7 @@ interface FormData {
   email: string;
   phone: string;
   emailLanguage: EmailLanguage;
+  visitPurpose: VisitPurpose | '';
   // Step 3
   acceptedMenuPolicy: boolean;
   // Step 4
@@ -53,6 +54,7 @@ const initialFormData: FormData = {
   email: '',
   phone: '',
   emailLanguage: 'en',
+  visitPurpose: '',
   acceptedMenuPolicy: false,
   hasAllergies: false,
   allergyInfo: '',
@@ -139,6 +141,7 @@ export function BookingForm() {
           slotEnd: formData.slotEnd,
           allergyInfo: formData.hasAllergies ? formData.allergyInfo : null,
           emailLanguage: formData.emailLanguage,
+          visitPurpose: formData.visitPurpose,
           setupIntentId,
         }),
       });
@@ -243,6 +246,7 @@ export function BookingForm() {
           email={formData.email}
           phone={formData.phone}
           emailLanguage={formData.emailLanguage}
+          visitPurpose={formData.visitPurpose}
           onDateChange={(date) => {
             updateFormData('date', date);
             // Reset slot selection when date changes to prevent selecting unavailable slots
@@ -257,6 +261,7 @@ export function BookingForm() {
           }}
           onContactChange={(field, value) => updateFormData(field, value)}
           onEmailLanguageChange={(lang) => updateFormData('emailLanguage', lang)}
+          onVisitPurposeChange={(purpose) => updateFormData('visitPurpose', purpose)}
           onNext={handleNext}
           onBack={handleBack}
         />

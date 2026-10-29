@@ -77,6 +77,7 @@ export async function POST(request: NextRequest) {
       slotEnd,
       allergyInfo,
       emailLanguage,
+      visitPurpose,
       setupIntentId,
     } = validationResult.data;
 
@@ -135,6 +136,7 @@ export async function POST(request: NextRequest) {
       slot_start: canonicalSlotStart,
       slot_end: canonicalSlotEnd,
       allergy_info: allergyInfo || null,
+      visit_purpose: visitPurpose,
       accepted_menu_policy: true,
       accepted_house_rules: true,
       accepted_cancellation_policy: true,

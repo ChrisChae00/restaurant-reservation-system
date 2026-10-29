@@ -11,7 +11,7 @@ import { FloatingInput } from '@/components/ui/floating-input';
 import { Label } from '@/components/ui/label';
 import { isRestaurantOpen, formatTimeRange, RESTAURANT_CONTACT, PHONE_PATTERN } from '@/lib/booking-rules';
 import { format, addDays, isBefore, startOfDay, endOfMonth, addMonths, startOfMonth } from 'date-fns';
-import type { SlotAvailability, EmailLanguage } from '@/types/booking';
+import { VISIT_PURPOSES, type SlotAvailability, type EmailLanguage, type VisitPurpose } from '@/types/booking';
 
 interface DetailsStepProps {
   partySize: number;
@@ -24,10 +24,12 @@ interface DetailsStepProps {
   email: string;
   phone: string;
   emailLanguage: EmailLanguage;
+  visitPurpose: VisitPurpose | '';
   onDateChange: (date: Date | undefined) => void;
   onSlotChange: (slotId: string, start: string, end: string) => void;
   onContactChange: (field: 'firstName' | 'lastName' | 'email' | 'phone', value: string) => void;
   onEmailLanguageChange: (lang: EmailLanguage) => void;
+  onVisitPurposeChange: (purpose: VisitPurpose) => void;
   onNext: () => void;
   onBack: () => void;
 }
@@ -43,10 +45,12 @@ export function DetailsStep({
   email,
   phone,
   emailLanguage,
+  visitPurpose,
   onDateChange,
   onSlotChange,
   onContactChange,
   onEmailLanguageChange,
+  onVisitPurposeChange,
   onNext,
   onBack,
 }: DetailsStepProps) {
@@ -145,6 +149,7 @@ export function DetailsStep({
   const isFormValid = 
     date && 
     slotId && 
+    visitPurpose &&
     firstName.trim().length > 0 && 
     lastName.trim().length > 0 && 
     isEmailValid &&
@@ -281,6 +286,36 @@ export function DetailsStep({
               </p>
             )}
           </div>
+        )}
+
+        {/* Purpose of Visit (required) */}
+        {slotId && (
+          <fieldset className="space-y-3 pt-4 border-t border-gold/10">
+            <legend className="text-base font-medium">{t('purpose.label')}</legend>
+            <p className="text-xs text-muted-foreground italic">{t('purpose.description')}</p>
+            <div className="grid grid-cols-1 gap-2">
+              {VISIT_PURPOSES.map((purpose) => (
+                <label
+                  key={purpose}
+                  className={`cursor-pointer px-4 py-3 rounded-lg text-sm transition-all border ${
+                    visitPurpose === purpose
+                      ? 'bg-gold/20 border-gold text-gold-light'
+                      : 'border-gold/30 hover:border-gold hover:bg-gold/5'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="visitPurpose"
+                    value={purpose}
+                    checked={visitPurpose === purpose}
+                    onChange={() => onVisitPurposeChange(purpose)}
+                    className="sr-only"
+                  />
+                  {t(`purpose.${purpose}`)}
+                </label>
+              ))}
+            </div>
+          </fieldset>
         )}
 
         {/* Contact Information */}
