@@ -19,6 +19,7 @@ import {
   LayoutDashboard,
   X,
   ArrowLeft,
+  Mail,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar, CalendarDayButton } from '@/components/ui/calendar';
@@ -39,7 +40,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
-import type { Booking, BookingStatus } from '@/types/booking';
+import { VISIT_PURPOSE_KO, type Booking, type BookingStatus } from '@/types/booking';
 import { getSlotsForDate, formatTimeRange } from '@/lib/booking-rules';
 import { isWithin7Days as isDateWithin7Days } from '@/lib/restaurant-time';
 
@@ -577,6 +578,37 @@ export default function AdminPage() {
     }
   };
 
+  // 수정한 내용으로 확정 이메일 재발송. 수정(저장)과 분리되어 있어 저장할 때마다 이메일이 나가지 않음.
+  const handleResendConfirmation = async (booking: Booking) => {
+    if (!confirm(`${booking.first_name}님에게 현재 예약 정보로 확정 이메일을 다시 발송하시겠습니까?`)) {
+      return;
+    }
+
+    setChargingId(booking.id);
+    setChargeError(null);
+    setChargeSuccess(null);
+
+    try {
+      const response = await fetch(`/api/admin/bookings/${booking.id}/resend-confirmation`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        const result = await response.json().catch(() => null);
+        throw new Error(result?.error || '이메일 재발송 실패');
+      }
+
+      setChargeSuccess('수정된 내용으로 확정 이메일을 다시 발송했습니다.');
+    } catch (error) {
+      console.error('Resend confirmation error:', error);
+      setChargeError('확정 이메일 재발송 실패');
+    } finally {
+      // Reload either way: the row's email-error flag changes on success and on failure.
+      fetchBookings();
+      setChargingId(null);
+    }
+  };
+
   const handleOpenRejectModal = (booking: Booking) => {
     setRejectBooking(booking);
     setRejectReason('');
@@ -706,7 +738,11 @@ export default function AdminPage() {
         throw new Error(result?.error || 'Failed to update booking');
       }
 
-      setChargeSuccess('예약이 수정되었습니다');
+      setChargeSuccess(
+        editingBooking.status === 'confirmed'
+          ? '예약이 수정되었습니다. 손님에게 알리려면 "이메일 재발송"을 눌러주세요.'
+          : '예약이 수정되었습니다'
+      );
       setEditingBooking(null);
       fetchBookings();
       fetchDashboardData(currentMonth, confirmedRangeFilter);
@@ -962,6 +998,11 @@ export default function AdminPage() {
                           <Globe className="h-3 w-3 sm:h-4 sm:w-4 text-gold" />
                           <span>{booking.email_language === 'fr' ? 'Français' : 'English'}</span>
                         </div>
+                        {booking.visit_purpose && (
+                          <div className="text-[10px] sm:text-sm text-muted-foreground">
+                            방문 목적: {VISIT_PURPOSE_KO[booking.visit_purpose]}
+                          </div>
+                        )}
                         {booking.allergy_info && (
                           <div className="text-[10px] sm:text-sm text-amber-400 flex items-center gap-1">
                             <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4" />
@@ -1026,6 +1067,18 @@ export default function AdminPage() {
 
                         {booking.status === 'confirmed' && (
                           <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleResendConfirmation(booking)}
+                              disabled={chargingId === booking.id}
+                              className="border-gold/30 hover:border-gold h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3"
+                              title="수정된 내용으로 확정 이메일 재발송"
+                            >
+                              <Mail className="h-3 w-3 sm:h-4 sm:w-4 mr-0.5 sm:mr-1" />
+                              이메일 재발송
+                            </Button>
+
                             <Button
                               variant="destructive"
                               size="sm"
