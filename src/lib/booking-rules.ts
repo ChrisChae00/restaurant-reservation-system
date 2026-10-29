@@ -158,6 +158,17 @@ const FRI_SAT_SLOTS: TimeSlot[] = [
   },
 ];
 
+// December only: an extra seating added on every open day (Wed-Sun). It overlaps the
+// 17:00 seatings on purpose — the restaurant accepted that for the holiday season.
+const DECEMBER_EXTRA_SLOT: TimeSlot = {
+  id: 'dec-extra',
+  arrivalStart: '16:30',
+  arrivalEnd: '16:30',
+  slotEnd: '19:15',
+  label: '16:30 → 19:15',
+  type: 'early',
+};
+
 // ============================================
 // WEEKLY SCHEDULE
 // ============================================
@@ -194,7 +205,8 @@ export function getEffectiveDayConfig(date: Date): DayConfig {
 
 export function getSlotsForDate(date: Date): TimeSlot[] {
   const config = getEffectiveDayConfig(date);
-  return config.isOpen ? config.slots : [];
+  if (!config.isOpen) return [];
+  return date.getMonth() === 11 ? [DECEMBER_EXTRA_SLOT, ...config.slots] : config.slots;
 }
 
 export function isRestaurantOpen(date: Date): boolean {
