@@ -60,6 +60,7 @@ function buildRequest(index: number) {
       slotEnd: slot.slotEnd,
       emailLanguage: 'en',
       setupIntentId: 'seti_race_test',
+      visitPurpose: 'family_reunion',
     }),
   });
 }

@@ -5,18 +5,19 @@ import { cn } from '@/lib/utils';
 interface FloatingInputProps extends Omit<React.ComponentProps<'input'>, 'placeholder'> {
   label: string;
   icon?: LucideIcon;
+  wrapperClassName?: string;
 }
 
 // The label sits inside the input and floats onto the border on focus or once there is a
 // value. Positioning is driven by :placeholder-shown (hence the blank placeholder) rather
 // than React state, so it also holds for values set by the parent and for browser autofill,
 // neither of which fires this input's onChange.
-export function FloatingInput({ label, icon: Icon, id, className, ...props }: FloatingInputProps) {
+export function FloatingInput({ label, icon: Icon, id, className, wrapperClassName, ...props }: FloatingInputProps) {
   const fallbackId = React.useId();
   const inputId = id ?? fallbackId;
 
   return (
-    <div className="relative">
+    <div className={cn('relative', wrapperClassName)}>
       <input
         id={inputId}
         placeholder=" "

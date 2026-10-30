@@ -40,6 +40,15 @@ describe('getSlotsForDate', () => {
   it('returns 2 slots on Friday', () => {
     expect(getSlotsForDate(FRIDAY)).toHaveLength(2);
   });
+
+  it('adds the 16:30 seating on open days in December only', () => {
+    const decFriday = new Date('2026-12-04T12:00:00');
+    expect(getSlotsForDate(decFriday).map((s) => s.arrivalStart)).toEqual(['16:30', '17:00', '21:30']);
+    expect(getSlotsForDate(new Date('2026-12-07T12:00:00'))).toEqual([]); // Monday stays closed
+    expect(getSlotsForDate(new Date('2027-01-08T12:00:00'))).toHaveLength(2); // January Friday
+    expect(getSlotsForDate(new Date('2026-12-31T12:00:00'))[0].id).toBe('dec-extra'); // last day
+    expect(getSlotsForDate(new Date('2026-11-28T12:00:00')).map((s) => s.id)).not.toContain('dec-extra');
+  });
 });
 
 describe('getEffectiveDayConfig', () => {

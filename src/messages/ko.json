@@ -62,7 +62,15 @@
       "description": "확인 이메일을 받으실 언어를 선택해 주세요"
     },
     "back": "뒤로",
-    "continue": "계속하기"
+    "continue": "계속하기",
+    "purpose": {
+      "label": "방문 목적 (필수)",
+      "description": "더 나은 서비스를 위해 단체 예약의 주된 목적을 선택해 주세요.",
+      "placeholder": "방문 목적 선택",
+      "family_reunion": "가족 모임",
+      "corporate_event": "회사 / 기업 행사",
+      "personal_gathering": "개인 모임 (생일, 친목 등)"
+    }
   },
   "menuPolicy": {
     "title": "메뉴 정책",

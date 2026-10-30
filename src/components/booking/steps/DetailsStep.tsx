@@ -9,9 +9,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Calendar } from '@/components/ui/calendar';
 import { FloatingInput } from '@/components/ui/floating-input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { isRestaurantOpen, formatTimeRange, RESTAURANT_CONTACT, PHONE_PATTERN } from '@/lib/booking-rules';
 import { format, addDays, isBefore, startOfDay, endOfMonth, addMonths, startOfMonth } from 'date-fns';
-import type { SlotAvailability, EmailLanguage } from '@/types/booking';
+import { VISIT_PURPOSES, type SlotAvailability, type EmailLanguage, type VisitPurpose } from '@/types/booking';
 
 interface DetailsStepProps {
   partySize: number;
@@ -24,10 +25,12 @@ interface DetailsStepProps {
   email: string;
   phone: string;
   emailLanguage: EmailLanguage;
+  visitPurpose: VisitPurpose | '';
   onDateChange: (date: Date | undefined) => void;
   onSlotChange: (slotId: string, start: string, end: string) => void;
   onContactChange: (field: 'firstName' | 'lastName' | 'email' | 'phone', value: string) => void;
   onEmailLanguageChange: (lang: EmailLanguage) => void;
+  onVisitPurposeChange: (purpose: VisitPurpose) => void;
   onNext: () => void;
   onBack: () => void;
 }
@@ -43,10 +46,12 @@ export function DetailsStep({
   email,
   phone,
   emailLanguage,
+  visitPurpose,
   onDateChange,
   onSlotChange,
   onContactChange,
   onEmailLanguageChange,
+  onVisitPurposeChange,
   onNext,
   onBack,
 }: DetailsStepProps) {
@@ -145,6 +150,7 @@ export function DetailsStep({
   const isFormValid = 
     date && 
     slotId && 
+    visitPurpose &&
     firstName.trim().length > 0 && 
     lastName.trim().length > 0 && 
     isEmailValid &&
@@ -390,6 +396,24 @@ export function DetailsStep({
                   {t('contact.phoneInvalid')}
                 </p>
               )}
+            </div>
+
+            {/* Purpose of Visit (required) */}
+            <div className="space-y-2">
+              <Label htmlFor="visitPurpose" className="text-sm font-medium">{t('purpose.label')}</Label>
+              <p className="text-xs text-muted-foreground italic">{t('purpose.description')}</p>
+              <Select value={visitPurpose} onValueChange={(v) => onVisitPurposeChange(v as VisitPurpose)}>
+                <SelectTrigger id="visitPurpose" className="w-full border-gold/30">
+                  <SelectValue placeholder={t('purpose.placeholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {VISIT_PURPOSES.map((purpose) => (
+                    <SelectItem key={purpose} value={purpose}>
+                      {t(`purpose.${purpose}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <p className="text-xs text-muted-foreground text-center pt-2">

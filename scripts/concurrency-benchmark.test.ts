@@ -58,6 +58,7 @@ function buildBody(index: number) {
     slotStart: slot.arrivalStart,
     slotEnd: slot.slotEnd,
     emailLanguage: 'en',
+    visitPurpose: 'family_reunion',
   };
 
   return LEGACY

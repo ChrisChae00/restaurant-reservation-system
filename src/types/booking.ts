@@ -2,6 +2,15 @@
 
 export type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'noshow_charged';
 export type EmailLanguage = 'en' | 'fr';
+export const VISIT_PURPOSES = ['family_reunion', 'corporate_event', 'personal_gathering'] as const;
+export type VisitPurpose = typeof VISIT_PURPOSES[number];
+
+// Korean labels for the admin dashboard and the restaurant notification email.
+export const VISIT_PURPOSE_KO: Record<VisitPurpose, string> = {
+  family_reunion: '가족 모임',
+  corporate_event: '회사 / 기업 행사',
+  personal_gathering: '개인 모임 (생일, 친목 등)',
+};
 
 export interface Booking {
   id: string;
@@ -17,6 +26,7 @@ export interface Booking {
   slot_start: string;
   slot_end: string;
   allergy_info: string | null;
+  visit_purpose: VisitPurpose | null;
   accepted_menu_policy: boolean;
   accepted_house_rules: boolean;
   accepted_cancellation_policy: boolean;
@@ -46,37 +56,6 @@ export interface CreateBookingInput {
   stripe_customer_id: string;
   stripe_payment_method_id: string;
   email_language?: EmailLanguage;
-}
-
-// Multi-step form data
-export interface BookingFormData {
-  // Step 1: Landing
-  partySize: number;
-  agreedToRules: boolean;
-  
-  // Step 2: Details
-  date: Date | undefined;
-  slotId: string;
-  slotStart: string;
-  slotEnd: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  emailLanguage: EmailLanguage;
-  
-  // Step 3: Menu Policy
-  acceptedMenuPolicy: boolean;
-  
-  // Step 4: Allergy
-  hasAllergies: boolean;
-  allergyInfo: string;
-  
-  // Step 5: House Rules
-  acceptedHouseRules: boolean;
-  
-  // Step 6: Card (handled by Stripe)
-  acceptedCancellationPolicy: boolean;
 }
 
 // Form steps

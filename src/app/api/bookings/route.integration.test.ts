@@ -74,6 +74,7 @@ describe.skipIf(!process.env.SUPABASE_SERVICE_ROLE_KEY)('POST /api/bookings inte
         slotStart: '17:15', // Invalid forged start time
         slotEnd: '19:45',   // Invalid forged end time
         setupIntentId: 'seti_test',
+        visitPurpose: 'family_reunion',
       }),
     });
 
@@ -104,6 +105,7 @@ describe.skipIf(!process.env.SUPABASE_SERVICE_ROLE_KEY)('POST /api/bookings inte
         slotStart: slot.arrivalStart,
         slotEnd: slot.slotEnd,
         setupIntentId: 'seti_test',
+        visitPurpose: 'family_reunion',
       }),
     });
 
@@ -130,6 +132,7 @@ describe.skipIf(!process.env.SUPABASE_SERVICE_ROLE_KEY)('POST /api/bookings inte
         slotStart: slot.arrivalStart,
         slotEnd: slot.slotEnd,
         setupIntentId: 'seti_test',
+        visitPurpose: 'family_reunion',
       }),
     });
 
@@ -159,6 +162,7 @@ describe.skipIf(!process.env.SUPABASE_SERVICE_ROLE_KEY)('POST /api/bookings inte
         slotStart: lateSlot!.arrivalStart,
         slotEnd: lateSlot!.slotEnd,
         setupIntentId: 'seti_test',
+        visitPurpose: 'family_reunion',
       }),
     });
 
@@ -174,8 +178,8 @@ describe.skipIf(!process.env.SUPABASE_SERVICE_ROLE_KEY)('POST /api/bookings inte
     const { POST } = await import('./route');
     const { date, slots } = findTestSlot('weekday');
     const bookingDate = toDateOnlyString(date);
-    const early = slots.find((s) => s.type === 'early')!;
-    const mid = slots.find((s) => s.type === 'mid')!;
+    const early = slots.find((s) => s.id.endsWith('-early'))!;
+    const mid = slots.find((s) => s.id.endsWith('-mid'))!;
 
     expect(early.slotEnd > mid.arrivalStart).toBe(true); // they really do overlap
 
@@ -194,6 +198,7 @@ describe.skipIf(!process.env.SUPABASE_SERVICE_ROLE_KEY)('POST /api/bookings inte
             slotStart: slot.arrivalStart,
             slotEnd: slot.slotEnd,
             setupIntentId: 'seti_test',
+            visitPurpose: 'family_reunion',
           }),
         })
       );

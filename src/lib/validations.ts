@@ -7,21 +7,15 @@ import {
   NO_SHOW_FEE_PER_PERSON as NO_SHOW_FEE_PER_PERSON_CAD,
   PHONE_PATTERN,
 } from '@/lib/booking-rules';
+import { VISIT_PURPOSES } from '@/types/booking';
 
-// HTML sanitization helper to prevent XSS
-const sanitizeHtml = (str: string) => str
-  .replace(/</g, '&lt;')
-  .replace(/>/g, '&gt;')
-  .replace(/"/g, '&quot;')
-  .replace(/'/g, '&#x27;')
-  .replace(/\//g, '&#x2F;');
-
-// Safe string schema that sanitizes HTML
-const safeString = (minLen = 1, maxLen = 50) => z
+// Free text is stored exactly as the guest typed it. It is escaped where it is rendered
+// (React escapes on its own, the email templates call escapeHtml); escaping it here as well
+// stored entities like `&#x2F;`, which then showed up literally in the admin dashboard.
+const boundedString = (minLen = 1, maxLen = 50) => z
   .string()
   .min(minLen, `Minimum length is ${minLen}`)
-  .max(maxLen, `Maximum length is ${maxLen}`)
-  .transform(sanitizeHtml);
+  .max(maxLen, `Maximum length is ${maxLen}`);
 
 // Step 1: Landing validation
 export const landingSchema = z.object({
@@ -40,8 +34,8 @@ export const detailsSchema = z.object({
   slotId: z.string().min(1, 'Please select a time slot'),
   slotStart: z.string().regex(/^\d{2}:\d{2}$/, 'Invalid time format'),
   slotEnd: z.string().regex(/^\d{2}:\d{2}$/, 'Invalid time format'),
-  firstName: safeString(1, 50),
-  lastName: safeString(1, 50),
+  firstName: boundedString(1, 50),
+  lastName: boundedString(1, 50),
   email: z.string().email('Please enter a valid email address'),
   phone: z.string().regex(PHONE_PATTERN, 'Please enter a valid 10-digit phone number'),
 });
@@ -116,8 +110,9 @@ export const createBookingRequestSchema = z.object({
   slotId: z.string().min(1),
   slotStart: z.string().regex(/^\d{2}:\d{2}$/),
   slotEnd: z.string().regex(/^\d{2}:\d{2}$/),
-  allergyInfo: z.string().max(1000).transform(sanitizeHtml).optional().nullable(),
+  allergyInfo: z.string().max(1000).optional().nullable(),
   emailLanguage: z.enum(['en', 'fr']).optional(),
+  visitPurpose: z.enum(VISIT_PURPOSES),
   // The card identity is resolved server-side from this SetupIntent. Accepting the customer
   // and payment-method IDs directly let a caller attach someone else's saved card to their
   // own booking, which would charge that person for the no-show.

@@ -70,6 +70,15 @@ test('booking flow stays usable from party size through card entry', async ({ pa
   await page.fill('#firstName', 'Test');
   await page.fill('#lastName', 'Guest');
   await page.fill('#email', 'guest@example.com');
+  await page.fill('#phone', '5145550000');
+  // Purpose of visit is required: valid contact details alone must not unlock the step.
+  await expect(page.getByRole('button', { name: /Continue/ })).toBeDisabled();
+  await page.locator('#visitPurpose').click();
+  await page.getByRole('option', { name: 'Family Reunion' }).click();
+
+  await page.fill('#firstName', 'Test');
+  await page.fill('#lastName', 'Guest');
+  await page.fill('#email', 'guest@example.com');
   // A number with too many digits must not get past this step.
   await page.fill('#phone', '4379089907123123');
   await page.locator('#phone').blur();

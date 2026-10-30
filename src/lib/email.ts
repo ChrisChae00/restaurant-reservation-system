@@ -3,7 +3,7 @@
 
 import nodemailer from 'nodemailer';
 import { randomUUID } from 'crypto';
-import type { Booking } from '@/types/booking';
+import { VISIT_PURPOSE_KO, type Booking } from '@/types/booking';
 
 const RESTAURANT_EMAIL = 'lunagroupreservation@gmail.com';
 const RESTAURANT_NAME = 'Restaurant Coréen Luna';
@@ -199,6 +199,7 @@ export async function sendNewReservationNotification(booking: Booking): Promise<
 - 날짜: ${formatDateKo(booking.booking_date)}
 - 시간: ${formatTime(booking.slot_start)} - ${formatTime(booking.slot_end)}
 - 인원수: ${booking.party_size}명
+- 방문 목적: ${booking.visit_purpose ? VISIT_PURPOSE_KO[booking.visit_purpose] : '미선택'}
 - 알러지: ${booking.allergy_info || '없음'}
 
 ────────────────────────────────
@@ -282,7 +283,7 @@ function generateEnglishReceivedEmail(booking: Booking, bookingRef: string): str
   
   <div class="content">
     <div class="intro">
-      <p>Dear ${booking.first_name},</p>
+      <p>Dear ${escapeHtml(booking.first_name)},</p>
       <p>Thank you for your reservation request at <strong>${RESTAURANT_NAME}</strong>.</p>
       <p>Your request has been received and is pending confirmation.</p>
     </div>
@@ -353,7 +354,7 @@ function generateFrenchReceivedEmail(booking: Booking, bookingRef: string): stri
   
   <div class="content">
     <div class="intro">
-      <p>Cher/Chère ${booking.first_name},</p>
+      <p>Cher/Chère ${escapeHtml(booking.first_name)},</p>
       <p>Merci pour votre demande de réservation au <strong>${RESTAURANT_NAME}</strong>.</p>
       <p>Votre demande a été reçue et est en attente de confirmation.</p>
     </div>
@@ -454,7 +455,7 @@ function generateEnglishEmail(booking: Booking): string {
   
   <div class="content">
     <div class="intro">
-      <p>Dear ${booking.first_name},</p>
+      <p>Dear ${escapeHtml(booking.first_name)},</p>
       <p>We are pleased to confirm your reservation at <strong>${RESTAURANT_NAME}</strong>.</p>
       <p>Your credit card information has been securely stored in the Luna reservation system. No charges have been processed in advance.</p>
     </div>
@@ -556,7 +557,7 @@ function generateFrenchEmail(booking: Booking): string {
   
   <div class="content">
     <div class="intro">
-      <p>Cher/Chère ${booking.first_name},</p>
+      <p>Cher/Chère ${escapeHtml(booking.first_name)},</p>
       <p>Nous confirmons votre réservation au <strong>${RESTAURANT_NAME}</strong>.</p>
       <p>Les informations de votre carte de crédit ont été enregistrées de façon sécurisée dans le système de réservation Luna. Aucun montant n'a été facturé à l'avance.</p>
     </div>
@@ -683,7 +684,7 @@ function generateEnglishCancellationEmail(booking: Booking): string {
   
   <div class="content">
     <div class="intro">
-      <p>Dear ${booking.first_name},</p>
+      <p>Dear ${escapeHtml(booking.first_name)},</p>
       <p>We are writing to inform you that your reservation has been cancelled.</p>
     </div>
     
@@ -748,7 +749,7 @@ function generateFrenchCancellationEmail(booking: Booking): string {
   
   <div class="content">
     <div class="intro">
-      <p>Cher/Chère ${booking.first_name},</p>
+      <p>Cher/Chère ${escapeHtml(booking.first_name)},</p>
       <p>Nous vous informons que votre réservation a été annulée.</p>
     </div>
     
@@ -964,7 +965,7 @@ function generateEnglishNoShowChargeEmail(
   
   <div class="content">
     <div class="intro">
-      <p>Dear ${booking.first_name},</p>
+      <p>Dear ${escapeHtml(booking.first_name)},</p>
       <p>We are writing to inform you that a no-show fee has been charged to the credit card on file for your reservation at <strong>${RESTAURANT_NAME}</strong>.</p>
     </div>
     
@@ -1037,7 +1038,7 @@ function generateFrenchNoShowChargeEmail(
   
   <div class="content">
     <div class="intro">
-      <p>Cher/Chère ${booking.first_name},</p>
+      <p>Cher/Chère ${escapeHtml(booking.first_name)},</p>
       <p>Nous vous informons que des frais de non-présentation ont été facturés sur la carte de crédit enregistrée pour votre réservation au <strong>${RESTAURANT_NAME}</strong>.</p>
     </div>
     
