@@ -21,6 +21,7 @@ import {
   ArrowLeft,
   Mail,
   CreditCard,
+  Phone,
   Lock,
   User,
   ClipboardList,
@@ -29,6 +30,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar, CalendarDayButton } from '@/components/ui/calendar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { FloatingInput } from '@/components/ui/floating-input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -76,7 +78,7 @@ function EditSection({
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-3 rounded-lg border border-gold/15 bg-card/40 p-3 sm:p-4">
+    <section className="space-y-4 rounded-lg border border-gold/15 bg-card p-3 sm:p-4">
       <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gold">
         <Icon className="h-4 w-4" aria-hidden />
         {title}
@@ -111,7 +113,7 @@ function nearestTimeOptionIndex(value: string): number | null {
   return Math.round(minutes / 10);
 }
 
-function TimeField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+function TimeField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   const [open, setOpen] = useState(false);
   const [focused, setFocused] = useState(false);
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -132,9 +134,10 @@ function TimeField({ value, onChange }: { value: string; onChange: (value: strin
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Input
+        <FloatingInput
           type="text"
-          placeholder="HH:MM"
+          label={label}
+          icon={Clock}
           value={displayValue}
           onChange={(e) => onChange(e.target.value)}
           onFocus={() => { setFocused(true); setOpen(true); }}
@@ -1546,86 +1549,77 @@ export default function AdminPage() {
               <form onSubmit={handleUpdateBooking}>
                 <CardContent className="space-y-4">
                   <EditSection icon={CalendarIcon} title="예약 일정">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1.5">
-                        <Label htmlFor="edit-date">날짜</Label>
-                        <Input
-                          id="edit-date"
-                          type="date"
-                          value={editForm.booking_date?.toString() || ''}
-                          onChange={(e) => setEditForm(prev => ({...prev, booking_date: e.target.value}))}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="edit-party">인원수</Label>
-                        <Input
-                          id="edit-party"
-                          type="number"
-                          min={1}
-                          value={editForm.party_size || ''}
-                          onChange={(e) => setEditForm(prev => ({...prev, party_size: parseInt(e.target.value) || 0}))}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>시작 시간</Label>
-                        <TimeField
-                          value={editForm.slot_start?.slice(0, 5) || ''}
-                          onChange={(v) => setEditForm(prev => ({...prev, slot_start: v}))}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>종료 시간</Label>
-                        <TimeField
-                          value={editForm.slot_end?.slice(0, 5) || ''}
-                          onChange={(v) => setEditForm(prev => ({...prev, slot_end: v}))}
-                        />
-                      </div>
+                    {/* Two columns clip the date and times below 360px (iPhone SE), so stack there. */}
+                    <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-3">
+                      {/* No leading icon: the native date picker already shows one, and at phone
+                          width the extra padding clipped the date. */}
+                      <FloatingInput
+                        label="날짜"
+                        type="date"
+                        className="px-3 text-sm sm:text-base"
+                        value={editForm.booking_date?.toString() || ''}
+                        onChange={(e) => setEditForm(prev => ({...prev, booking_date: e.target.value}))}
+                      />
+                      <FloatingInput
+                        label="인원수"
+                        icon={Users}
+                        type="number"
+                        min={1}
+                        value={editForm.party_size || ''}
+                        onChange={(e) => setEditForm(prev => ({...prev, party_size: parseInt(e.target.value) || 0}))}
+                      />
+                      <TimeField
+                        label="시작 시간"
+                        value={editForm.slot_start?.slice(0, 5) || ''}
+                        onChange={(v) => setEditForm(prev => ({...prev, slot_start: v}))}
+                      />
+                      <TimeField
+                        label="종료 시간"
+                        value={editForm.slot_end?.slice(0, 5) || ''}
+                        onChange={(v) => setEditForm(prev => ({...prev, slot_end: v}))}
+                      />
                     </div>
                   </EditSection>
 
                   <EditSection icon={User} title="손님 연락처">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="space-y-1.5">
-                        <Label htmlFor="edit-first">이름</Label>
-                        <Input
-                          id="edit-first"
-                          value={editForm.first_name || ''}
-                          onChange={(e) => setEditForm(prev => ({...prev, first_name: e.target.value}))}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="edit-last">성</Label>
-                        <Input
-                          id="edit-last"
-                          value={editForm.last_name || ''}
-                          onChange={(e) => setEditForm(prev => ({...prev, last_name: e.target.value}))}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="edit-email">이메일</Label>
-                        <Input
-                          id="edit-email"
-                          type="email"
-                          value={editForm.email || ''}
-                          onChange={(e) => setEditForm(prev => ({...prev, email: e.target.value}))}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="edit-phone">전화번호</Label>
-                        <Input
-                          id="edit-phone"
-                          type="tel"
-                          value={editForm.phone || ''}
-                          onChange={(e) => setEditForm(prev => ({...prev, phone: e.target.value}))}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>이메일 언어</Label>
+                      <FloatingInput
+                        label="이름"
+                        icon={User}
+                        value={editForm.first_name || ''}
+                        onChange={(e) => setEditForm(prev => ({...prev, first_name: e.target.value}))}
+                      />
+                      <FloatingInput
+                        label="성"
+                        icon={User}
+                        value={editForm.last_name || ''}
+                        onChange={(e) => setEditForm(prev => ({...prev, last_name: e.target.value}))}
+                      />
+                      <FloatingInput
+                        label="이메일"
+                        icon={Mail}
+                        type="email"
+                        value={editForm.email || ''}
+                        onChange={(e) => setEditForm(prev => ({...prev, email: e.target.value}))}
+                      />
+                      <FloatingInput
+                        label="전화번호"
+                        icon={Phone}
+                        type="tel"
+                        value={editForm.phone || ''}
+                        onChange={(e) => setEditForm(prev => ({...prev, phone: e.target.value}))}
+                      />
+                      {/* Select has no input to float a label from, so the label is drawn already
+                          floated to match the FloatingInput fields around it. */}
+                      <div className="relative">
                         <Select
                           value={editForm.email_language || 'en'}
                           onValueChange={(v) => setEditForm(prev => ({...prev, email_language: v as Booking['email_language']}))}
                         >
-                          <SelectTrigger className="w-full">
+                          <SelectTrigger
+                            id="edit-language"
+                            className="w-full !h-12 rounded-lg border-gold/20 bg-transparent pl-11 text-base focus-visible:border-gold focus-visible:ring-gold/20"
+                          >
                             <SelectValue />
                           </SelectTrigger>
                           {/* z-[70]: the Select portal must sit above this z-[60] modal */}
@@ -1634,6 +1628,13 @@ export default function AdminPage() {
                             <SelectItem value="fr">Français</SelectItem>
                           </SelectContent>
                         </Select>
+                        <Globe aria-hidden className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <label
+                          htmlFor="edit-language"
+                          className="pointer-events-none absolute left-3 top-0 -translate-y-1/2 bg-card px-1 text-xs text-muted-foreground"
+                        >
+                          이메일 언어
+                        </label>
                       </div>
                     </div>
                   </EditSection>
@@ -1645,15 +1646,12 @@ export default function AdminPage() {
                       </InfoRow>
                       {editingBooking.special_notes && <InfoRow label="메모">{editingBooking.special_notes}</InfoRow>}
                     </dl>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="edit-allergy">알레르기</Label>
-                      <Input
-                        id="edit-allergy"
-                        placeholder="없음"
-                        value={editForm.allergy_info || ''}
-                        onChange={(e) => setEditForm(prev => ({...prev, allergy_info: e.target.value}))}
-                      />
-                    </div>
+                    <FloatingInput
+                      label="알레르기"
+                      icon={AlertTriangle}
+                      value={editForm.allergy_info || ''}
+                      onChange={(e) => setEditForm(prev => ({...prev, allergy_info: e.target.value}))}
+                    />
                   </EditSection>
 
                   <EditSection icon={CreditCard} title="동의 및 결제 카드" readOnly>
