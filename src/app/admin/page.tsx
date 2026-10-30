@@ -1387,6 +1387,12 @@ export default function AdminPage() {
                                 <Globe className="h-3 w-3 text-gold" />
                                 <span>{booking.email_language === 'fr' ? 'Français' : 'English'}</span>
                               </div>
+                              {booking.visit_purpose && (
+                                <div className="flex items-center gap-1 text-[10px] sm:text-sm text-muted-foreground">
+                                  <ClipboardList className="h-3 w-3 text-gold" />
+                                  방문 목적: {VISIT_PURPOSE_KO[booking.visit_purpose]}
+                                </div>
+                              )}
                               {booking.allergy_info && (
                                 <div className="text-[10px] sm:text-sm text-amber-400 flex items-center gap-1">
                                   <AlertTriangle className="h-3 w-3" />
@@ -1485,6 +1491,12 @@ export default function AdminPage() {
                                 <Globe className="h-3 w-3 text-gold" />
                                 <span>{booking.email_language === 'fr' ? 'Français' : 'English'}</span>
                               </div>
+                              {booking.visit_purpose && (
+                                <div className="flex items-center gap-1 text-[10px] sm:text-sm text-muted-foreground">
+                                  <ClipboardList className="h-3 w-3 text-gold" />
+                                  방문 목적: {VISIT_PURPOSE_KO[booking.visit_purpose]}
+                                </div>
+                              )}
                               {booking.allergy_info && (
                                 <div className="text-[10px] sm:text-sm text-amber-400 flex items-center gap-1">
                                   <AlertTriangle className="h-3 w-3" />
