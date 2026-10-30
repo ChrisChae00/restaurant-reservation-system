@@ -1620,7 +1620,7 @@ export default function AdminPage() {
                         >
                           <SelectTrigger
                             id="edit-language"
-                            className="w-full !h-12 rounded-lg border-gold/20 bg-transparent dark:bg-transparent dark:hover:bg-transparent shadow-none pl-11 pr-4 text-base focus-visible:border-gold focus-visible:ring-gold/20"
+                            className="w-full data-[size=default]:h-12 rounded-lg border-gold/20 bg-transparent dark:bg-transparent dark:hover:bg-transparent shadow-none pl-11 pr-4 text-base focus-visible:border-gold focus-visible:ring-gold/20"
                           >
                             <SelectValue />
                           </SelectTrigger>
