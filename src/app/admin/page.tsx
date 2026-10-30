@@ -20,6 +20,10 @@ import {
   X,
   ArrowLeft,
   Mail,
+  CreditCard,
+  Lock,
+  User,
+  ClipboardList,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar, CalendarDayButton } from '@/components/ui/calendar';
@@ -54,6 +58,50 @@ function formatTime(time: string) {
   const period = h >= 12 ? 'PM' : 'AM';
   const hour = h === 0 ? 12 : h > 12 ? h - 12 : h;
   return `${hour}:${m.toString().padStart(2, '0')} ${period}`;
+}
+
+type SavedCard = { brand: string; last4: string; expMonth: number; expYear: number };
+
+// One titled group in the edit modal. Read-only groups say so, so the admin never
+// wonders why a field can't be changed.
+function EditSection({
+  icon: Icon,
+  title,
+  readOnly,
+  children,
+}: {
+  icon: React.ElementType;
+  title: string;
+  readOnly?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-3 rounded-lg border border-gold/15 bg-card/40 p-3 sm:p-4">
+      <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gold">
+        <Icon className="h-4 w-4" aria-hidden />
+        {title}
+        {readOnly && (
+          <span className="ml-auto flex items-center gap-1 text-[10px] font-normal normal-case tracking-normal text-muted-foreground">
+            <Lock className="h-3 w-3" aria-hidden />
+            읽기 전용
+          </span>
+        )}
+      </h3>
+      {children}
+    </section>
+  );
+}
+
+// Label/value pair for data the admin can see but not edit. Empty values say so
+// explicitly instead of rendering a blank that looks like a loading glitch.
+function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
+  const empty = children === null || children === undefined || children === '';
+  return (
+    <div className="grid grid-cols-[7rem_1fr] items-baseline gap-2 text-sm">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className={empty ? 'text-muted-foreground/60 italic' : 'break-words'}>{empty ? '미입력' : children}</dd>
+    </div>
+  );
 }
 
 function nearestTimeOptionIndex(value: string): number | null {
@@ -137,6 +185,8 @@ export default function AdminPage() {
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
   const [editForm, setEditForm] = useState<Partial<Booking>>({});
   const [isUpdating, setIsUpdating] = useState(false);
+  const [editCard, setEditCard] = useState<SavedCard | 'loading' | 'error'>('loading');
+  const cardRequestId = useRef<string | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -678,6 +728,13 @@ export default function AdminPage() {
 
   const handleEditClick = (booking: Booking) => {
     setEditingBooking(booking);
+    setEditCard('loading');
+    // Ignore a late answer for a booking the admin already closed or switched away from.
+    cardRequestId.current = booking.id;
+    fetch(`/api/admin/bookings/${booking.id}/card`)
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((card: SavedCard) => cardRequestId.current === booking.id && setEditCard(card))
+      .catch(() => cardRequestId.current === booking.id && setEditCard('error'));
     setEditForm({
       first_name: booking.first_name,
       last_name: booking.last_name,
@@ -1462,113 +1519,193 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* Edit Modal (Overlay) — stacks above Quick View (z-50) so 수정 works from within 승인 대기 */}
+        {/* Edit Modal (Overlay) — stacks above Quick View (z-50) so 수정 works from within 승인 대기.
+            Shows everything the guest submitted so the admin can re-check before re-sending
+            the confirmation email; fields the admin may not change are read-only. */}
         {editingBooking && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <Card className="w-full max-w-lg bg-background border-gold/20 max-h-[90vh] overflow-y-auto">
-              <CardHeader>
-                <CardTitle>예약 수정</CardTitle>
-                <CardDescription>{editingBooking.first_name}님의 예약 정보 수정</CardDescription>
+            <Card className="w-full max-w-2xl bg-background border-gold/20 max-h-[90vh] overflow-y-auto pb-0">
+              <CardHeader className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <CardTitle>예약 수정</CardTitle>
+                  <span className={`px-2 py-0.5 rounded-full text-xs border ${statusColors[editingBooking.status]}`}>
+                    {statusLabels[editingBooking.status]}
+                  </span>
+                </div>
+                <CardDescription className="flex flex-wrap gap-x-3 gap-y-1">
+                  <span>{editingBooking.first_name} {editingBooking.last_name}</span>
+                  {editingBooking.booking_reference && <span>#{editingBooking.booking_reference}</span>}
+                  <span>접수 {format(parseISO(editingBooking.created_at), 'yyyy-MM-dd HH:mm')}</span>
+                </CardDescription>
+                {editingBooking.last_email_error && (
+                  <p className="flex items-start gap-1 text-xs text-red-400" title={editingBooking.last_email_error}>
+                    <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+                    마지막 이메일 발송 실패: {editingBooking.last_email_error}
+                  </p>
+                )}
               </CardHeader>
               <form onSubmit={handleUpdateBooking}>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                       <Label>이름</Label>
-                       <Input 
-                         value={editForm.first_name || ''} 
-                         onChange={(e) => setEditForm(prev => ({...prev, first_name: e.target.value}))} 
-                       />
+                  <EditSection icon={CalendarIcon} title="예약 일정">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                        <Label htmlFor="edit-date">날짜</Label>
+                        <Input
+                          id="edit-date"
+                          type="date"
+                          value={editForm.booking_date?.toString() || ''}
+                          onChange={(e) => setEditForm(prev => ({...prev, booking_date: e.target.value}))}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>시작 시간</Label>
+                        <TimeField
+                          value={editForm.slot_start?.slice(0, 5) || ''}
+                          onChange={(v) => setEditForm(prev => ({...prev, slot_start: v}))}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>종료 시간</Label>
+                        <TimeField
+                          value={editForm.slot_end?.slice(0, 5) || ''}
+                          onChange={(v) => setEditForm(prev => ({...prev, slot_end: v}))}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="edit-party">인원수</Label>
+                        <Input
+                          id="edit-party"
+                          type="number"
+                          min={1}
+                          value={editForm.party_size || ''}
+                          onChange={(e) => setEditForm(prev => ({...prev, party_size: parseInt(e.target.value) || 0}))}
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                       <Label>성</Label>
-                       <Input 
-                         value={editForm.last_name || ''} 
-                         onChange={(e) => setEditForm(prev => ({...prev, last_name: e.target.value}))} 
-                       />
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                     <div className="space-y-2">
-                       <Label>이메일</Label>
-                       <Input 
-                         value={editForm.email || ''} 
-                         onChange={(e) => setEditForm(prev => ({...prev, email: e.target.value}))} 
-                       />
-                    </div>
-                    <div className="space-y-2">
-                       <Label>전화번호</Label>
-                       <Input 
-                         value={editForm.phone || ''} 
-                         onChange={(e) => setEditForm(prev => ({...prev, phone: e.target.value}))} 
-                       />
-                    </div>
-                  </div>
+                  </EditSection>
 
-                  <div className="grid grid-cols-3 gap-4">
-                     <div className="space-y-2">
-                       <Label>날짜</Label>
-                       <Input
-                         type="date"
-                         value={editForm.booking_date?.toString() || ''}
-                         onChange={(e) => setEditForm(prev => ({...prev, booking_date: e.target.value}))}
-                       />
+                  <EditSection icon={User} title="손님 연락처">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="edit-first">이름</Label>
+                        <Input
+                          id="edit-first"
+                          value={editForm.first_name || ''}
+                          onChange={(e) => setEditForm(prev => ({...prev, first_name: e.target.value}))}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="edit-last">성</Label>
+                        <Input
+                          id="edit-last"
+                          value={editForm.last_name || ''}
+                          onChange={(e) => setEditForm(prev => ({...prev, last_name: e.target.value}))}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="edit-email">이메일</Label>
+                        <Input
+                          id="edit-email"
+                          type="email"
+                          value={editForm.email || ''}
+                          onChange={(e) => setEditForm(prev => ({...prev, email: e.target.value}))}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="edit-phone">전화번호</Label>
+                        <Input
+                          id="edit-phone"
+                          type="tel"
+                          value={editForm.phone || ''}
+                          onChange={(e) => setEditForm(prev => ({...prev, phone: e.target.value}))}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>이메일 언어</Label>
+                        <Select
+                          value={editForm.email_language || 'en'}
+                          onValueChange={(v) => setEditForm(prev => ({...prev, email_language: v as Booking['email_language']}))}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          {/* z-[70]: the Select portal must sit above this z-[60] modal */}
+                          <SelectContent className="z-[70]">
+                            <SelectItem value="en">English</SelectItem>
+                            <SelectItem value="fr">Français</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                       <Label>시작 시간</Label>
-                       <TimeField
-                         value={editForm.slot_start?.slice(0, 5) || ''}
-                         onChange={(v) => setEditForm(prev => ({...prev, slot_start: v}))}
-                       />
-                    </div>
-                    <div className="space-y-2">
-                       <Label>종료 시간</Label>
-                       <TimeField
-                         value={editForm.slot_end?.slice(0, 5) || ''}
-                         onChange={(v) => setEditForm(prev => ({...prev, slot_end: v}))}
-                       />
-                    </div>
-                  </div>
+                  </EditSection>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                       <Label>인원수</Label>
-                       <Input
-                         type="number"
-                         min={1}
-                         value={editForm.party_size || ''}
-                         onChange={(e) => setEditForm(prev => ({...prev, party_size: parseInt(e.target.value) || 0}))}
-                       />
+                  <EditSection icon={ClipboardList} title="손님 요청 사항">
+                    <dl className="space-y-2">
+                      <InfoRow label="방문 목적">
+                        {editingBooking.visit_purpose && VISIT_PURPOSE_KO[editingBooking.visit_purpose]}
+                      </InfoRow>
+                      {editingBooking.special_notes && <InfoRow label="메모">{editingBooking.special_notes}</InfoRow>}
+                    </dl>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="edit-allergy">알레르기</Label>
+                      <Input
+                        id="edit-allergy"
+                        placeholder="없음"
+                        value={editForm.allergy_info || ''}
+                        onChange={(e) => setEditForm(prev => ({...prev, allergy_info: e.target.value}))}
+                      />
                     </div>
-                    <div className="space-y-2">
-                       <Label>이메일 언어</Label>
-                       <Select
-                         value={editForm.email_language || 'en'}
-                         onValueChange={(v) => setEditForm(prev => ({...prev, email_language: v as Booking['email_language']}))}
-                       >
-                         <SelectTrigger className="w-full">
-                           <SelectValue />
-                         </SelectTrigger>
-                         {/* z-[70]: the Select portal must sit above this z-[60] modal */}
-                         <SelectContent className="z-[70]">
-                           <SelectItem value="en">English</SelectItem>
-                           <SelectItem value="fr">Français</SelectItem>
-                         </SelectContent>
-                       </Select>
-                    </div>
-                  </div>
+                  </EditSection>
 
-                    <div className="space-y-2">
-                       <Label>알레르기</Label>
-                       <Input 
-                         value={editForm.allergy_info || ''} 
-                         onChange={(e) => setEditForm(prev => ({...prev, allergy_info: e.target.value}))} 
-                       />
-                    </div>
-
+                  <EditSection icon={CreditCard} title="동의 및 결제 카드" readOnly>
+                    <dl className="space-y-2">
+                      <InfoRow label="보증 카드">
+                        {editCard === 'loading' ? (
+                          <span className="flex items-center gap-1 text-muted-foreground">
+                            <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> 불러오는 중
+                          </span>
+                        ) : editCard === 'error' ? (
+                          <span className="text-red-400">카드 정보를 불러오지 못했습니다</span>
+                        ) : (
+                          <span className="font-mono">
+                            <span className="capitalize font-sans">{editCard.brand}</span> •••• {editCard.last4}
+                            <span className="ml-2 whitespace-nowrap text-muted-foreground">
+                              만료 {String(editCard.expMonth).padStart(2, '0')}/{String(editCard.expYear).slice(-2)}
+                            </span>
+                          </span>
+                        )}
+                      </InfoRow>
+                      <InfoRow label="Stripe 고객">
+                        <span className="font-mono text-xs">{editingBooking.stripe_customer_id}</span>
+                      </InfoRow>
+                      <InfoRow label="정책 동의">
+                        <span className="flex flex-wrap gap-1.5">
+                          {([
+                            ['메뉴', editingBooking.accepted_menu_policy],
+                            ['하우스 룰', editingBooking.accepted_house_rules],
+                            ['취소 정책', editingBooking.accepted_cancellation_policy],
+                          ] as const).map(([name, ok]) => (
+                            <span
+                              key={name}
+                              className={`flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs ${
+                                ok ? 'border-green-500/30 text-green-400' : 'border-red-500/30 text-red-400'
+                              }`}
+                            >
+                              {ok ? <CheckCircle className="h-3 w-3" aria-hidden /> : <XCircle className="h-3 w-3" aria-hidden />}
+                              {name}
+                            </span>
+                          ))}
+                        </span>
+                      </InfoRow>
+                      {editingBooking.penalty_charged_at && (
+                        <InfoRow label="노쇼 청구">
+                          ${((editingBooking.penalty_amount ?? 0) / 100).toFixed(2)} CAD ·{format(parseISO(editingBooking.penalty_charged_at), 'yyyy-MM-dd HH:mm')}
+                        </InfoRow>
+                      )}
+                    </dl>
+                  </EditSection>
                 </CardContent>
-                <div className="p-6 pt-0 flex justify-end gap-3">
+                <div className="sticky bottom-0 flex justify-end gap-3 border-t border-gold/10 bg-background p-4 sm:px-6">
                   <Button type="button" variant="ghost" onClick={() => setEditingBooking(null)}>취소</Button>
                   <Button type="submit" disabled={isUpdating}>
                     {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
