@@ -178,8 +178,8 @@ describe.skipIf(!process.env.SUPABASE_SERVICE_ROLE_KEY)('POST /api/bookings inte
     const { POST } = await import('./route');
     const { date, slots } = findTestSlot('weekday');
     const bookingDate = toDateOnlyString(date);
-    const early = slots.find((s) => s.type === 'early')!;
-    const mid = slots.find((s) => s.type === 'mid')!;
+    const early = slots.find((s) => s.id.endsWith('-early'))!;
+    const mid = slots.find((s) => s.id.endsWith('-mid'))!;
 
     expect(early.slotEnd > mid.arrivalStart).toBe(true); // they really do overlap
 

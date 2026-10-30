@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { sendConfirmationEmail, sendCancellationEmail, sendRejectionEmail } from '@/lib/email';
 import { requireAuth } from '@/lib/auth';
+import { recordEmailFailure } from '@/lib/email-failure';
 import { getConcurrentGuests } from '@/lib/availability';
 import { MAX_CAPACITY } from '@/lib/booking-rules';
 import type { BookingStatus } from '@/types/booking';
@@ -20,23 +21,6 @@ const VALID_STATUSES: BookingStatus[] = [
   'completed',
   'noshow_charged',
 ];
-
-// Record that the notification failed so the admin dashboard can surface it, instead of
-// the failure being visible only in server logs.
-async function recordEmailFailure(
-  supabase: ReturnType<typeof createServerClient>,
-  bookingId: string,
-  error: unknown
-) {
-  const message = error instanceof Error ? error.message : String(error);
-  await supabase
-    .from('bookings')
-    .update({
-      last_email_error: message.slice(0, 500),
-      last_email_error_at: new Date().toISOString(),
-    })
-    .eq('id', bookingId);
-}
 
 // PATCH /api/admin/bookings/[id]
 export async function PATCH(

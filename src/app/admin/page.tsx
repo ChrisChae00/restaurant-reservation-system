@@ -601,9 +601,9 @@ export default function AdminPage() {
       setChargeSuccess('수정된 내용으로 확정 이메일을 다시 발송했습니다.');
     } catch (error) {
       console.error('Resend confirmation error:', error);
-      setChargeError('확정 이메일 재발송 실패');
+      setChargeError(error instanceof Error ? error.message : '확정 이메일 재발송 실패');
     } finally {
-      // Reload either way: the row's email-error flag changes on success and on failure.
+      // Reload either way: success may clear the row's email-error flag and failure sets it.
       fetchBookings();
       setChargingId(null);
     }

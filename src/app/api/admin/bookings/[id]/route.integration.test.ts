@@ -19,7 +19,8 @@ vi.mock('@/lib/email', () => ({
 const TEST_EMAIL_DOMAIN = '@capacitytest.example';
 
 // Sun/Wed/Thu are the days whose early and mid seatings overlap, which is what this
-// suite needs; Fri/Sat only have two non-overlapping slots.
+// suite needs; Fri/Sat have no mid seating. Slots are picked by id, not type, because
+// in December the 16:30 seating is also 'early' and comes first.
 //
 // The offsets start past day 30 on purpose: the booking suites in ../../../bookings pick
 // dates from days 8-30 and vitest runs test files in parallel, so a shared date would
@@ -30,8 +31,8 @@ function findOverlappingSlots() {
     date.setDate(date.getDate() + offset);
     if (!isRestaurantOpen(date)) continue;
     const slots = getSlotsForDate(date);
-    const early = slots.find((s) => s.type === 'early');
-    const mid = slots.find((s) => s.type === 'mid');
+    const early = slots.find((s) => s.id.endsWith('-early'));
+    const mid = slots.find((s) => s.id.endsWith('-mid'));
     if (early && mid) return { date, early, mid };
   }
   throw new Error('No day with overlapping early/mid slots found in range');

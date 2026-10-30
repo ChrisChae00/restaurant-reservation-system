@@ -9,6 +9,7 @@ import { validateBookingRules } from '@/lib/booking-validation';
 import { verifySetupIntent } from '@/lib/stripe';
 import { sendNewReservationNotification, sendReservationReceivedEmail } from '@/lib/email';
 import { requireAuth } from '@/lib/auth';
+import { recordEmailFailure } from '@/lib/email-failure';
 
 // Postgres unique-violation. Raised by the booking_reference index and by the
 // one-team-per-slot index added in 20260727000100_prevent_double_booking.sql.
@@ -218,14 +219,7 @@ export async function POST(request: NextRequest) {
     } catch (err) {
       // Log but don't fail the booking if email fails
       console.error('Failed to send customer confirmation email:', err);
-      const message = err instanceof Error ? err.message : String(err);
-      await supabase
-        .from('bookings')
-        .update({
-          last_email_error: message.slice(0, 500),
-          last_email_error_at: new Date().toISOString(),
-        })
-        .eq('id', booking.id);
+      await recordEmailFailure(supabase, booking.id, err);
     }
 
     return NextResponse.json({

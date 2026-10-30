@@ -58,38 +58,6 @@ export interface CreateBookingInput {
   email_language?: EmailLanguage;
 }
 
-// Multi-step form data
-export interface BookingFormData {
-  // Step 1: Landing
-  partySize: number;
-  agreedToRules: boolean;
-  
-  // Step 2: Details
-  date: Date | undefined;
-  slotId: string;
-  slotStart: string;
-  slotEnd: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  emailLanguage: EmailLanguage;
-  visitPurpose: VisitPurpose | '';
-  
-  // Step 3: Menu Policy
-  acceptedMenuPolicy: boolean;
-  
-  // Step 4: Allergy
-  hasAllergies: boolean;
-  allergyInfo: string;
-  
-  // Step 5: House Rules
-  acceptedHouseRules: boolean;
-  
-  // Step 6: Card (handled by Stripe)
-  acceptedCancellationPolicy: boolean;
-}
-
 // Form steps
 export type BookingStep = 
   | 'landing'

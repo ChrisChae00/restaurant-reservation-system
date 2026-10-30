@@ -25,7 +25,8 @@ export function timeToMinutes(time: string, isEnd = false): number {
  * Do two seatings share any wall-clock time?
  *
  * Slots overlap by design — on Sun/Wed/Thu the early (17:00-19:30) and mid
- * (18:00-20:15) seatings are in the room together for 90 minutes — so counting
+ * (18:00-20:15) seatings are in the room together for 90 minutes, and in December
+ * the 16:30 seating overlaps the 17:00 one every open day — so counting
  * concurrent guests by exact (slot_start, slot_end) equality undercounts.
  * Touching boundaries (19:30 end vs 19:30 start) are not an overlap.
  */
@@ -158,8 +159,10 @@ const FRI_SAT_SLOTS: TimeSlot[] = [
   },
 ];
 
-// December only: an extra seating added on every open day (Wed-Sun). It overlaps the
-// 17:00 seatings on purpose — the restaurant accepted that for the holiday season.
+// December only: an extra 16:30-19:15 seating on every open day (Wed-Sun). It overlaps the
+// 17:00 seatings and, on Sun/Wed/Thu, the 18:00 mid seating, on purpose — the restaurant
+// accepted that for the holiday season. Read slots via getSlotsForDate, not DayConfig.slots,
+// or this seating is missed.
 const DECEMBER_EXTRA_SLOT: TimeSlot = {
   id: 'dec-extra',
   arrivalStart: '16:30',
