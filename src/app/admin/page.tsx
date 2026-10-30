@@ -187,6 +187,7 @@ export default function AdminPage() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [editCard, setEditCard] = useState<SavedCard | 'loading' | 'error'>('loading');
   const cardRequestId = useRef<string | null>(null);
+  const [resendBooking, setResendBooking] = useState<Booking | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -629,11 +630,8 @@ export default function AdminPage() {
   };
 
   // 수정한 내용으로 확정 이메일 재발송. 수정(저장)과 분리되어 있어 저장할 때마다 이메일이 나가지 않음.
+  // Called only from the resend confirmation modal, after the admin has checked the details.
   const handleResendConfirmation = async (booking: Booking) => {
-    if (!confirm(`${booking.first_name}님에게 현재 예약 정보로 확정 이메일을 다시 발송하시겠습니까?`)) {
-      return;
-    }
-
     setChargingId(booking.id);
     setChargeError(null);
     setChargeSuccess(null);
@@ -656,6 +654,7 @@ export default function AdminPage() {
       // Reload either way: success may clear the row's email-error flag and failure sets it.
       fetchBookings();
       setChargingId(null);
+      setResendBooking(null);
     }
   };
 
@@ -1127,7 +1126,7 @@ export default function AdminPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleResendConfirmation(booking)}
+                              onClick={() => setResendBooking(booking)}
                               disabled={chargingId === booking.id}
                               className="border-gold/30 hover:border-gold h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3"
                               title="수정된 내용으로 확정 이메일 재발송"
@@ -1547,14 +1546,24 @@ export default function AdminPage() {
               <form onSubmit={handleUpdateBooking}>
                 <CardContent className="space-y-4">
                   <EditSection icon={CalendarIcon} title="예약 일정">
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
                         <Label htmlFor="edit-date">날짜</Label>
                         <Input
                           id="edit-date"
                           type="date"
                           value={editForm.booking_date?.toString() || ''}
                           onChange={(e) => setEditForm(prev => ({...prev, booking_date: e.target.value}))}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="edit-party">인원수</Label>
+                        <Input
+                          id="edit-party"
+                          type="number"
+                          min={1}
+                          value={editForm.party_size || ''}
+                          onChange={(e) => setEditForm(prev => ({...prev, party_size: parseInt(e.target.value) || 0}))}
                         />
                       </div>
                       <div className="space-y-1.5">
@@ -1569,16 +1578,6 @@ export default function AdminPage() {
                         <TimeField
                           value={editForm.slot_end?.slice(0, 5) || ''}
                           onChange={(v) => setEditForm(prev => ({...prev, slot_end: v}))}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="edit-party">인원수</Label>
-                        <Input
-                          id="edit-party"
-                          type="number"
-                          min={1}
-                          value={editForm.party_size || ''}
-                          onChange={(e) => setEditForm(prev => ({...prev, party_size: parseInt(e.target.value) || 0}))}
                         />
                       </div>
                     </div>
@@ -1713,6 +1712,63 @@ export default function AdminPage() {
                   </Button>
                 </div>
               </form>
+            </Card>
+          </div>
+        )}
+
+        {/* Resend Confirmation Modal — a deliberate second step so a stray click never emails
+            the guest. Shows exactly what the email will carry so the admin checks it first. */}
+        {resendBooking && (
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="resend-title"
+            onKeyDown={(e) => e.key === 'Escape' && chargingId !== resendBooking.id && setResendBooking(null)}
+          >
+            <Card className="w-full max-w-md bg-background border-gold/20">
+              <CardHeader>
+                <CardTitle id="resend-title" className="flex items-center gap-2">
+                  <Mail className="h-5 w-5 text-gold" aria-hidden />
+                  확정 이메일 재발송
+                </CardTitle>
+                <CardDescription>아래 내용으로 손님에게 확정 이메일이 발송됩니다. 보내기 전에 확인해 주세요.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <dl className="space-y-2 rounded-lg border border-gold/15 bg-card/40 p-3 sm:p-4">
+                  <InfoRow label="받는 사람">
+                    <span className="font-medium">{resendBooking.first_name} {resendBooking.last_name}</span>
+                    <span className="block text-muted-foreground">{resendBooking.email}</span>
+                  </InfoRow>
+                  <InfoRow label="이메일 언어">{resendBooking.email_language === 'fr' ? 'Français' : 'English'}</InfoRow>
+                  <InfoRow label="날짜">{format(parseISO(resendBooking.booking_date), 'yyyy-MM-dd (EEE)')}</InfoRow>
+                  <InfoRow label="시간">{formatTime(resendBooking.slot_start)} – {formatTime(resendBooking.slot_end)}</InfoRow>
+                  <InfoRow label="인원수">{resendBooking.party_size}명</InfoRow>
+                </dl>
+              </CardContent>
+              <div className="flex justify-end gap-3 px-6">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  autoFocus
+                  onClick={() => setResendBooking(null)}
+                  disabled={chargingId === resendBooking.id}
+                >
+                  취소
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => handleResendConfirmation(resendBooking)}
+                  disabled={chargingId === resendBooking.id}
+                >
+                  {chargingId === resendBooking.id ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                  ) : (
+                    <Mail className="mr-2 h-4 w-4" aria-hidden />
+                  )}
+                  이메일 보내기
+                </Button>
+              </div>
             </Card>
           </div>
         )}
