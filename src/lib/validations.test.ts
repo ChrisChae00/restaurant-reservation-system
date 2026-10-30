@@ -29,3 +29,18 @@ describe('createBookingRequestSchema visitPurpose', () => {
     expect(createBookingRequestSchema.safeParse({ ...base, visitPurpose }).success).toBe(false);
   });
 });
+
+describe('createBookingRequestSchema free text', () => {
+  // Escaping on input stored `&#x2F;` etc., which the admin dashboard then showed literally.
+  it('keeps names and allergy notes exactly as typed', () => {
+    const allergyInfo = "Raw garlic/onion <small amounts> \"ok\"";
+    const result = createBookingRequestSchema.parse({
+      ...base,
+      visitPurpose: 'family_reunion',
+      lastName: "O'Brien",
+      allergyInfo,
+    });
+    expect(result.lastName).toBe("O'Brien");
+    expect(result.allergyInfo).toBe(allergyInfo);
+  });
+});
