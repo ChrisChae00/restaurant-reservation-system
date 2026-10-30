@@ -1549,8 +1549,7 @@ export default function AdminPage() {
               <form onSubmit={handleUpdateBooking}>
                 <CardContent className="space-y-4">
                   <EditSection icon={CalendarIcon} title="예약 일정">
-                    {/* Two columns clip the date and times below 360px (iPhone SE), so stack there. */}
-                    <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-3">
                       {/* No leading icon: the native date picker already shows one, and at phone
                           width the extra padding clipped the date. */}
                       <FloatingInput
@@ -1582,7 +1581,8 @@ export default function AdminPage() {
                   </EditSection>
 
                   <EditSection icon={User} title="손님 연락처">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Name fields always share a row; the rest pair up only when there is room. */}
+                    <div className="grid grid-cols-2 gap-3">
                       <FloatingInput
                         label="이름"
                         icon={User}
@@ -1597,6 +1597,7 @@ export default function AdminPage() {
                       />
                       <FloatingInput
                         label="이메일"
+                        wrapperClassName="col-span-2 sm:col-span-1"
                         icon={Mail}
                         type="email"
                         value={editForm.email || ''}
@@ -1604,6 +1605,7 @@ export default function AdminPage() {
                       />
                       <FloatingInput
                         label="전화번호"
+                        wrapperClassName="col-span-2 sm:col-span-1"
                         icon={Phone}
                         type="tel"
                         value={editForm.phone || ''}
@@ -1611,7 +1613,7 @@ export default function AdminPage() {
                       />
                       {/* Select has no input to float a label from, so the label is drawn already
                           floated to match the FloatingInput fields around it. */}
-                      <div className="relative">
+                      <div className="relative col-span-2 sm:col-span-1">
                         <Select
                           value={editForm.email_language || 'en'}
                           onValueChange={(v) => setEditForm(prev => ({...prev, email_language: v as Booking['email_language']}))}
