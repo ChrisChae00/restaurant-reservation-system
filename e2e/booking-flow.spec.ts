@@ -73,7 +73,8 @@ test('booking flow stays usable from party size through card entry', async ({ pa
   await page.fill('#phone', '5145550000');
   // Purpose of visit is required: valid contact details alone must not unlock the step.
   await expect(page.getByRole('button', { name: /Continue/ })).toBeDisabled();
-  await page.getByText('Family Reunion').click();
+  await page.locator('#visitPurpose').click();
+  await page.getByRole('option', { name: 'Family Reunion' }).click();
 
   await page.fill('#firstName', 'Test');
   await page.fill('#lastName', 'Guest');

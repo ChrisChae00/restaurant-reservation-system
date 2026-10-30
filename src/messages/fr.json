@@ -66,6 +66,7 @@
     "purpose": {
       "label": "Motif de la visite (Obligatoire)",
       "description": "Veuillez sélectionner le motif de votre réservation de groupe afin de nous aider à mieux vous accueillir.",
+      "placeholder": "Sélectionnez un motif",
       "family_reunion": "Réunion de famille",
       "corporate_event": "Événement d'entreprise",
       "personal_gathering": "Rassemblement personnel (Anniversaire, réunion entre amis, etc.)"

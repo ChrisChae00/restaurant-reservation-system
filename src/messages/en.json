@@ -66,6 +66,7 @@
     "purpose": {
       "label": "Purpose of Visit (Required)",
       "description": "Please select the primary reason for your group reservation to help us serve you better.",
+      "placeholder": "Select a purpose",
       "family_reunion": "Family Reunion",
       "corporate_event": "Company / Corporate Event",
       "personal_gathering": "Personal Gathering (Birthday, Social, etc.)"
